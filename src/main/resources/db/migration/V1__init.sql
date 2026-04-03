@@ -39,16 +39,7 @@ create table health_factors (
     description text
 );
 
--- enum type
-create table factor_enum_values (
-    id bigserial primary key,
-    factor_id bigint not null references health_factors(id) on delete cascade,
-    value varchar(255) not null,
-    unique(factor_id, value)
-);
-
--- 
-create table product_numeric_factors (
+create table product_factors (
     id bigserial primary key,
     product_id bigint references products(id) on delete cascade,
     factor_id bigint references health_factors(id),
@@ -56,21 +47,40 @@ create table product_numeric_factors (
     unique (product_id, factor_id)
 );
 
-create table product_boolean_factors (
-    id bigserial primary key,
-    product_id bigint references products(id) on delete cascade,
-    factor_id bigint references health_factors(id),
-    value boolean,
-    unique (product_id, factor_id)
-);
+-- пока что enum = bool
 
-create table product_enum_factors (
-    id bigserial primary key,
-    product_id bigint references products(id) on delete cascade,
-    factor_id bigint references health_factors(id),
-    enum_value_id bigint references factor_enum_values(id),
-    unique (product_id, factor_id)
-);
+-- -- enum type
+-- create table factor_enum_values (
+--     id bigserial primary key,
+--     factor_id bigint not null references health_factors(id) on delete cascade,
+--     value varchar(255) not null,
+--     unique(factor_id, value)
+-- );
+
+-- -- 
+-- create table product_numeric_factors (
+--     id bigserial primary key,
+--     product_id bigint references products(id) on delete cascade,
+--     factor_id bigint references health_factors(id),
+--     amount numeric(12,6),
+--     unique (product_id, factor_id)
+-- );
+
+-- create table product_boolean_factors (
+--     id bigserial primary key,
+--     product_id bigint references products(id) on delete cascade,
+--     factor_id bigint references health_factors(id),
+--     value boolean,
+--     unique (product_id, factor_id)
+-- );
+
+-- create table product_enum_factors (
+--     id bigserial primary key,
+--     product_id bigint references products(id) on delete cascade,
+--     factor_id bigint references health_factors(id),
+--     enum_value_id bigint references factor_enum_values(id),
+--     unique (product_id, factor_id)
+-- );
 
 create table factor_rules (
     id bigserial primary key,
