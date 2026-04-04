@@ -2,17 +2,22 @@ package ru.persea.productservice.service;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import ru.persea.productservice.dto.CategoryDto;
 import ru.persea.productservice.dto.FactorDto;
 import ru.persea.productservice.dto.ProductDto;
 import ru.persea.productservice.dto.ProductInclude;
 import ru.persea.productservice.entity.ProductEntity;
 import ru.persea.productservice.entity.ProductFactorEntity;
+import ru.persea.productservice.mapper.CategoryMapper;
 import ru.persea.productservice.mapper.ProductFactorMapper;
 import ru.persea.productservice.mapper.ProductMapper;
+import ru.persea.productservice.repository.CategoriesRepository;
 import ru.persea.productservice.repository.ProductFactorsRepository;
 import ru.persea.productservice.repository.ProductsRepository;
 
@@ -21,8 +26,10 @@ import ru.persea.productservice.repository.ProductsRepository;
 public class ProductServiceImpl implements ProductService {
     private final ProductsRepository productsRepository;
     private final ProductFactorsRepository productFactorsRepository;
+    private final CategoriesRepository categoriesRepository;
     
     private final ProductMapper productMapper;
+    private final CategoryMapper categoryMapper;
 
     @Override
     public ProductDto getProduct(Long id, Set<ProductInclude> includes) {
@@ -33,5 +40,21 @@ public class ProductServiceImpl implements ProductService {
             factors = productFactorsRepository.findByProductId(id);
 
         return productMapper.toDto(entity, factors);
+    }
+
+    @Override
+    public Set<CategoryDto> getCategories() {
+        return categoriesRepository.findAll().stream()
+                .map(categoryMapper::toDto)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public List<ProductDto> getProducts(Integer categoryId, Integer limit, Integer page) {
+        PageRequest pReq = PageRequest.of(page, limit);
+
+        return productsRepository.findAllByCategoryId(categoryId, pReq).stream()
+                    .map(productMapper::toDto)
+                    .toList();
     }
 }
