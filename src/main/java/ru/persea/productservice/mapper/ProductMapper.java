@@ -20,4 +20,6 @@ public interface ProductMapper {
 
     @Mapping(target = "factors", source = "factorEntities")
     ProductDto toDto(ProductEntity productEntity, List<ProductFactorEntity> factorEntities);
+
+    ProductDto toDto(ProductEntity productEntity);
 }
