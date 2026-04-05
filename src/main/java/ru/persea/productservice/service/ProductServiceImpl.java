@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -33,6 +34,9 @@ public class ProductServiceImpl implements ProductService {
     private final ProductMapper productMapper;
     private final CategoryMapper categoryMapper;
 
+    @Value("${app.default-autocomplete-suggestions}")
+    private Integer defaultSuggestions;
+
     @Override
     public ProductDto getProduct(Long id, Set<ProductInclude> includes) {
         ProductEntity entity = productsRepository.findById(id).orElseThrow();
@@ -52,20 +56,21 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public List<ProductDto> getProducts(
+    public List<ProductDto> searchProducts(
+        String query,
         Integer categoryId, 
-        Set<Integer> brandsIds, 
+        Integer[] brandsIds, 
         Integer minRating, 
         Integer maxRating, 
         Pageable pageable
     ) {
-        Specification<ProductEntity> spec = Specification
-            .where(ProductSpecification.hasCategoryId(categoryId))
-            .and(ProductSpecification.hasBrandIds(brandsIds))
-            .and(ProductSpecification.ratingBetween(minRating, maxRating));
-
-        return productsRepository.findAll(spec, pageable).stream()
+        return productsRepository.findProducts(query, categoryId, brandsIds, minRating, maxRating, pageable.getPageSize(), pageable.getPageNumber()).stream()
                     .map(productMapper::toDto)
                     .toList();
+    }
+
+    @Override
+    public Set<String> getSuggestions(String query) {
+        return productsRepository.findSuggestions(query, 5);
     }
 }
