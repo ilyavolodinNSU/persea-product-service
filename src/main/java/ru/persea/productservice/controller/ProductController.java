@@ -4,8 +4,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import ru.persea.productservice.dto.CategoryDto;
 import ru.persea.productservice.dto.ProductDto;
@@ -15,6 +13,7 @@ import ru.persea.productservice.service.ProductService;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,11 +26,21 @@ public class ProductController {
 
     @GetMapping
     public ResponseEntity<List<ProductDto>> getMethodName(
-        @RequestParam("categoryId") @Min(0) Integer categoryId,
-        @RequestParam(value = "limit", defaultValue = "5") @Min(0) @Max(50) Integer limit,
-        @RequestParam(value = "page", defaultValue = "0") @Min(0) Integer page
+        @RequestParam(value = "category_id", required = false) Integer categoryId,
+        @RequestParam(value = "brand_ids", required = false) Set<Integer> brandsIds,
+        @RequestParam(value = "min_rating", required = false) Integer minRating,
+        @RequestParam(value = "max_rating", required = false) Integer maxRating,
+        Pageable pageable
     ) {
-        return ResponseEntity.ok(productService.getProducts(categoryId, limit, page));
+        return ResponseEntity.ok(
+            productService.getProducts(
+                categoryId, 
+                brandsIds, 
+                minRating, 
+                maxRating, 
+                pageable
+            )
+        );
     }
     
     @GetMapping("/categories")
@@ -42,7 +51,7 @@ public class ProductController {
     @GetMapping("/{id}")
     public ResponseEntity<ProductDto> getProduct(
         @PathVariable("id") Long id,
-        @RequestParam(name = "include", required = false) Set<ProductInclude> includes
+        @RequestParam(value = "include", required = false) Set<ProductInclude> includes
     ) {
         return ResponseEntity.ok(productService.getProduct(id, includes));
     }
