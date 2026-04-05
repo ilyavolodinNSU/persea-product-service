@@ -5,6 +5,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
@@ -50,10 +52,19 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public List<ProductDto> getProducts(Integer categoryId, Integer limit, Integer page) {
-        PageRequest pReq = PageRequest.of(page, limit);
+    public List<ProductDto> getProducts(
+        Integer categoryId, 
+        Set<Integer> brandsIds, 
+        Integer minRating, 
+        Integer maxRating, 
+        Pageable pageable
+    ) {
+        Specification<ProductEntity> spec = Specification
+            .where(ProductSpecification.hasCategoryId(categoryId))
+            .and(ProductSpecification.hasBrandIds(brandsIds))
+            .and(ProductSpecification.ratingBetween(minRating, maxRating));
 
-        return productsRepository.findAllByCategoryId(categoryId, pReq).stream()
+        return productsRepository.findAll(spec, pageable).stream()
                     .map(productMapper::toDto)
                     .toList();
     }
