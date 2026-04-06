@@ -9,6 +9,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: none
+    show-sql: true
   security:
     oauth2:
       resourceserver:
@@ -30,3 +31,5 @@ logging:
     org:
       springframework:
         security: INFO
+app:
+  default-autocomplete-suggestions: 5
