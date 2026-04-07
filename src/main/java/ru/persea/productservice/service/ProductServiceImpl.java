@@ -1,5 +1,6 @@
 package ru.persea.productservice.service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -7,19 +8,34 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.Criteria;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import ru.persea.productservice.dto.CategoryDto;
 import ru.persea.productservice.dto.FactorDto;
 import ru.persea.productservice.dto.ProductDto;
 import ru.persea.productservice.dto.ProductInclude;
+import ru.persea.productservice.dto.ProductSearchDto;
+import ru.persea.productservice.entity.ProductDocument;
 import ru.persea.productservice.entity.ProductEntity;
 import ru.persea.productservice.entity.ProductFactorEntity;
 import ru.persea.productservice.mapper.CategoryMapper;
 import ru.persea.productservice.mapper.ProductFactorMapper;
 import ru.persea.productservice.mapper.ProductMapper;
+import ru.persea.productservice.mapper.ProductSearchMapper;
 import ru.persea.productservice.repository.CategoriesRepository;
 import ru.persea.productservice.repository.ProductFactorsRepository;
 import ru.persea.productservice.repository.ProductsRepository;
@@ -33,6 +49,9 @@ public class ProductServiceImpl implements ProductService {
     
     private final ProductMapper productMapper;
     private final CategoryMapper categoryMapper;
+    private final ProductSearchMapper productSearchMapper;
+
+    private final ElasticsearchOperations esOperations;
 
     @Value("${app.default-autocomplete-suggestions}")
     private Integer defaultSuggestions;
@@ -56,21 +75,87 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public List<ProductDto> searchProducts(
+    public List<ProductSearchDto> searchProducts(
         String query,
         Integer categoryId, 
-        Integer[] brandsIds, 
+        Set<Integer> brandIds, 
         Integer minRating, 
         Integer maxRating, 
         Pageable pageable
     ) {
-        return productsRepository.findProducts(query, categoryId, brandsIds, minRating, maxRating, pageable.getPageSize(), pageable.getPageNumber()).stream()
-                    .map(productMapper::toDto)
-                    .toList();
+        System.out.println("Sort: " + pageable.getSort()); 
+
+        BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+
+        if (query != null && !query.isBlank()) {
+            boolBuilder.must(Query.of(q -> q
+                .match(m -> m
+                    .field("name")
+                    .query(query)
+                    .fuzziness("2")
+                )
+            ));
+        } else boolBuilder.must(Query.of(q -> q.matchAll(m -> m)));
+
+        if (categoryId != null) {
+            boolBuilder.filter(Query.of(q -> q
+                .term(t -> t.field("category_id").value(categoryId))
+            ));
+        }
+
+        if (brandIds != null && !brandIds.isEmpty()) {
+            boolBuilder.filter(Query.of(q -> q
+                .terms(t -> t.field("brand_id").terms(tv -> tv.value(
+                    brandIds.stream()
+                        .map(id -> FieldValue.of(fv -> fv.longValue(id.longValue())))
+                        .toList()
+                )))
+            ));
+        }
+
+        if (minRating != null || maxRating != null) {
+            boolBuilder.filter(Query.of(q -> q
+                .range(r -> r
+                    .number(n -> {
+                        n.field("rating");
+                        if (minRating != null) n.gte(minRating.doubleValue());
+                        if (maxRating != null) n.lte(maxRating.doubleValue()); 
+                        return n;
+                    })
+                )
+            ));
+        }
+
+        NativeQuery searchQuery = NativeQuery.builder()
+            .withQuery(Query.of(q -> q.bool(boolBuilder.build())))
+            .withPageable(pageable)
+            .build();
+
+        return esOperations.search(searchQuery, ProductDocument.class).stream()
+                .map(SearchHit::getContent)
+                .map(productSearchMapper::toDto)
+                .toList();
     }
 
     @Override
-    public Set<String> getSuggestions(String query) {
-        return productsRepository.findSuggestions(query, 5);
+    public Set<String> getSuggestions(String prefix, int limit) {
+        return new HashSet<>();
+        // NativeQuery query = NativeQuery.builder()
+        //     .withQuery(Query.of(q -> q
+        //         .match(m -> m
+        //             .field("name.autocomplete")
+        //             .query(prefix)
+        //         )
+        //     ))
+        //     .withMaxResults(limit)
+        //     .build();
+
+        // SearchHits<Product> hits = elasticsearchOperations.search(query, Product.class);
+
+        // return hits.getSearchHits().stream()
+        //     .map(hit -> hit.getContent().getName())
+        //     .distinct()
+        //     .limit(limit)
+        //     .collect(Collectors.toList());
     }
 }
