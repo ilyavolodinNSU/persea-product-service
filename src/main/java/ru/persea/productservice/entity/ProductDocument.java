@@ -6,6 +6,8 @@ import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.InnerField;
+import org.springframework.data.elasticsearch.annotations.MultiField;
 import org.springframework.data.elasticsearch.annotations.Setting;
 
 import jakarta.persistence.Id;
@@ -19,11 +21,17 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(indexName = "products")
+@Setting(settingPath = "elasticsearch/product-settings.json")
 public class ProductDocument {
     @Id
     private Long id;
 
-    @Field(type = FieldType.Text, name = "name")
+    @MultiField(
+        mainField = @Field(type = FieldType.Text, analyzer = "standard"),
+        otherFields = {
+            @InnerField(suffix = "autocomplete", type = FieldType.Text, analyzer = "autocomplete", searchAnalyzer = "autocomplete_search")
+        }
+    )
     private String name;
 
     @Field(type = FieldType.Integer, name = "category_id")

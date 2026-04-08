@@ -23,8 +23,6 @@ server:
 
 logging:
   level:
-    org:
-      springframework:
-        security: INFO
-app:
-  default-autocomplete-suggestions: 5
+    co.elastic.clients: DEBUG
+    org.springframework.security: INFO
+    org.springframework.data.elasticsearch.client.WIRE: TRACE
