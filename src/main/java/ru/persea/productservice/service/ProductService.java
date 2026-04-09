@@ -18,5 +18,5 @@ public interface ProductService {
 
     public List<ProductSearchDto> searchProducts(String query, Integer categoryId, Set<Integer> brandsIds, Integer minRating, Integer maxRating, Pageable pageable);
 
-    public Set<String> getSuggestions(String query, int limit);
+    public List<String> getSuggestions(String query, int limit);
 }

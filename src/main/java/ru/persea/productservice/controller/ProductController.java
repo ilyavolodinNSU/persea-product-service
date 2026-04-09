@@ -25,12 +25,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class ProductController {
     private final ProductService productService;
 
-    @GetMapping("/test")
-    public String getMethodName(Pageable pageable) {
-        return pageable.toString();
-    }
-    
-
     @GetMapping
     public ResponseEntity<List<ProductSearchDto>> searchProducts(
         @RequestParam(value = "q", required = false) String query,
@@ -66,8 +60,11 @@ public class ProductController {
     }
 
     @GetMapping("/suggestions")
-    public ResponseEntity<Set<String>> getSuggestions(@RequestParam("q") String query) {
-        return ResponseEntity.ok(productService.getSuggestions(query, 5));
+    public ResponseEntity<List<String>> getSuggestions(
+        @RequestParam("q") String query, 
+        @RequestParam(value = "limit", defaultValue = "5", required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(productService.getSuggestions(query, limit));
     }
     
 }

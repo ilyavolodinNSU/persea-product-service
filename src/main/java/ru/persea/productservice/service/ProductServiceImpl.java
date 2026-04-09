@@ -1,5 +1,6 @@
 package ru.persea.productservice.service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -61,6 +62,9 @@ public class ProductServiceImpl implements ProductService {
 
     private final ElasticsearchOperations esOperations;
     private final ElasticsearchClient esClient;
+
+    @Value("{${app.suggestions-limit}")
+    private final Integer suggestionsLimit;
 
     @Override
     public ProductDto getProduct(Long id, Set<ProductInclude> includes) {
@@ -144,7 +148,9 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Set<String> getSuggestions(String prefix, int limit) {
+    public List<String> getSuggestions(String prefix, int limit) {
+        if (prefix==null || prefix.isBlank() || limit > suggestionsLimit) return new ArrayList<>();
+
         SearchRequest searchRequest = SearchRequest.of(s -> s
             .index("products")
             .suggest(sug -> sug
@@ -170,12 +176,12 @@ public class ProductServiceImpl implements ProductService {
                 return searchResponse.suggest().get("product-suggest").stream()
                     .flatMap(s -> s.completion().options().stream())
                     .map(CompletionSuggestOption::text)
-                    .collect(Collectors.toSet());
+                    .toList();
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        return new HashSet<>();
+        return new ArrayList<>();
     }
 }
