@@ -15,7 +15,8 @@ create table products (
     brand_id bigint not null references brands(id),
     category_id bigint not null references categories(id),
     rating int not null check (rating between 0 and 100), -- кеш вычислений
-    image_uri text not null
+    image_uri text not null,
+    updated_at timestamp not null default now() -- для логстеша
 );
 
 -- g, mg, kg
