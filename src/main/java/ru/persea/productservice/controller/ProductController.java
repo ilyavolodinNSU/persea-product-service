@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import ru.persea.productservice.dto.CategoryDto;
 import ru.persea.productservice.dto.ProductDto;
 import ru.persea.productservice.dto.ProductInclude;
+import ru.persea.productservice.dto.ProductSearchDto;
 import ru.persea.productservice.service.ProductService;
 
 import java.util.List;
@@ -25,10 +26,10 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public ResponseEntity<List<ProductDto>> searchProducts(
+    public ResponseEntity<List<ProductSearchDto>> searchProducts(
         @RequestParam(value = "q", required = false) String query,
         @RequestParam(value = "category_id", required = false) Integer categoryId,
-        @RequestParam(value = "brand_ids", required = false) Integer[] brandsIds,
+        @RequestParam(value = "brand_ids", required = false) Set<Integer> brandsIds,
         @RequestParam(value = "min_rating", required = false) Integer minRating,
         @RequestParam(value = "max_rating", required = false) Integer maxRating,
         Pageable pageable
@@ -59,8 +60,11 @@ public class ProductController {
     }
 
     @GetMapping("/suggestions")
-    public ResponseEntity<Set<String>> getSuggestions(@RequestParam("q") String query) {
-        return ResponseEntity.ok(productService.getSuggestions(query));
+    public ResponseEntity<List<String>> getSuggestions(
+        @RequestParam("q") String query, 
+        @RequestParam(value = "limit", defaultValue = "5", required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(productService.getSuggestions(query, limit));
     }
     
 }

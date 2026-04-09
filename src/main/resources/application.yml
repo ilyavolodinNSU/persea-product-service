@@ -3,8 +3,8 @@ spring:
     name: persea-product-service
   datasource:
       url: jdbc:postgresql://localhost:5432/product_service
-      username: myuser
-      password: mypassword
+      username: postgres
+      password: postgres
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -15,21 +15,11 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8081/realms/persea
-  data:
-    web:
-      pageable:
-        max-page-size: 50
-        default-page-size: 20
-      sort:
-        sort-parameter: name
+  elasticsearch:
+    uris: http://localhost:9200
 
 server:
   port: 8083
 
-logging:
-  level:
-    org:
-      springframework:
-        security: INFO
 app:
-  default-autocomplete-suggestions: 5
+  suggestions-limit: 5
