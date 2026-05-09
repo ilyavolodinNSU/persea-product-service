@@ -13,6 +13,7 @@ import ru.persea.productservice.service.ProductService;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -56,7 +57,7 @@ public class ProductController {
         @PathVariable("id") Long id,
         @RequestParam(value = "include", required = false) Set<ProductInclude> includes
     ) {
-        return ResponseEntity.ok(productService.getProduct(id, includes));
+        return ResponseEntity.ok(productService.getProduct(id, includes, UUID.randomUUID()));
     }
 
     @GetMapping("/suggestions")
