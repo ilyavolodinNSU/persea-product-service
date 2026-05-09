@@ -2,6 +2,7 @@ package ru.persea.productservice.service;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,9 +13,11 @@ import ru.persea.productservice.dto.ProductInclude;
 import ru.persea.productservice.dto.ProductSearchDto;
 
 public interface ProductService {
-    public ProductDto getProduct(Long id, Set<ProductInclude> includes);
+    public List<CategoryDto> addCategories(List<String> names);
 
     public Set<CategoryDto> getCategories();
+
+    public ProductDto getProduct(Long id, Set<ProductInclude> includes, UUID userId);
 
     public List<ProductSearchDto> searchProducts(String query, Integer categoryId, Set<Integer> brandsIds, Integer minRating, Integer maxRating, Pageable pageable);
 

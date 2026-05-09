@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +19,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.Criteria;
 import org.springframework.data.elasticsearch.core.suggest.response.Suggest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -37,6 +39,7 @@ import ru.persea.productservice.dto.FactorDto;
 import ru.persea.productservice.dto.ProductDto;
 import ru.persea.productservice.dto.ProductInclude;
 import ru.persea.productservice.dto.ProductSearchDto;
+import ru.persea.productservice.dto.UserActionEvent;
 import ru.persea.productservice.entity.ProductDocument;
 import ru.persea.productservice.entity.ProductEntity;
 import ru.persea.productservice.entity.ProductFactorEntity;
@@ -48,6 +51,8 @@ import ru.persea.productservice.repository.CategoriesRepository;
 import ru.persea.productservice.repository.ProductFactorsRepository;
 import ru.persea.productservice.repository.ProductsRepository;
 import tools.jackson.databind.ObjectMapper;
+
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 @Service
 @RequiredArgsConstructor
@@ -63,16 +68,17 @@ public class ProductServiceImpl implements ProductService {
     private final ElasticsearchOperations esOperations;
     private final ElasticsearchClient esClient;
 
-    @Value("{${app.suggestions-limit}")
-    private final Integer suggestionsLimit;
+    private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
 
     @Override
-    public ProductDto getProduct(Long id, Set<ProductInclude> includes) {
+    public ProductDto getProduct(Long id, Set<ProductInclude> includes, UUID userId) {
         ProductEntity entity = productsRepository.findById(id).orElseThrow();
         List<ProductFactorEntity> factors = null;
 
         if (includes != null && includes.contains(ProductInclude.FACTORS))
             factors = productFactorsRepository.findByProductId(id);
+
+        kafkaTemplate.send("user-actions", new UserActionEvent(userId, "view"));
 
         return productMapper.toDto(entity, factors);
     }
@@ -149,7 +155,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<String> getSuggestions(String prefix, int limit) {
-        if (prefix==null || prefix.isBlank() || limit > suggestionsLimit) return new ArrayList<>();
+        if (prefix==null || prefix.isBlank() || limit > 5) return new ArrayList<>();
 
         SearchRequest searchRequest = SearchRequest.of(s -> s
             .index("products")
