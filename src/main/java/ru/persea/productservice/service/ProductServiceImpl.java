@@ -34,21 +34,30 @@ import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
 import co.elastic.clients.elasticsearch.core.search.SuggestionBuilders;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.dto.CategoryDto;
-import ru.persea.productservice.dto.FactorDto;
-import ru.persea.productservice.dto.ProductDto;
-import ru.persea.productservice.dto.ProductInclude;
-import ru.persea.productservice.dto.ProductSearchDto;
 import ru.persea.productservice.dto.UserActionEvent;
-import ru.persea.productservice.entity.ProductDocument;
-import ru.persea.productservice.entity.ProductEntity;
-import ru.persea.productservice.entity.ProductFactorEntity;
-import ru.persea.productservice.mapper.CategoryMapper;
-import ru.persea.productservice.mapper.ProductFactorMapper;
+import ru.persea.productservice.dto.factor.FactorDto;
+import ru.persea.productservice.dto.product.BrandDto;
+import ru.persea.productservice.dto.product.CategoryDto;
+import ru.persea.productservice.dto.product.ProductInclude;
+import ru.persea.productservice.dto.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.request.CreateProductRequest;
+import ru.persea.productservice.dto.product.response.ProductResponse;
+import ru.persea.productservice.entity.product.BrandEntity;
+import ru.persea.productservice.entity.product.CategoryEntity;
+import ru.persea.productservice.entity.product.ProductBooleanFactorEntity;
+import ru.persea.productservice.entity.product.ProductDocument;
+import ru.persea.productservice.entity.product.ProductEntity;
+import ru.persea.productservice.entity.product.ProductEnumFactorEntity;
+import ru.persea.productservice.entity.product.ProductNumericFactorEntity;
 import ru.persea.productservice.mapper.ProductMapper;
 import ru.persea.productservice.mapper.ProductSearchMapper;
-import ru.persea.productservice.repository.CategoriesRepository;
-import ru.persea.productservice.repository.ProductFactorsRepository;
+import ru.persea.productservice.repository.FactorRepository;
+import ru.persea.productservice.repository.ProductBooleanFactorRepository;
+import ru.persea.productservice.repository.ProductEnumFactorRepository;
+import ru.persea.productservice.repository.BrandRepository;
+import ru.persea.productservice.repository.CategoryRepository;
+import ru.persea.productservice.repository.FactorEnumValueRepository;
+import ru.persea.productservice.repository.ProductNumericFactorRepository;
 import ru.persea.productservice.repository.ProductsRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -57,37 +66,118 @@ import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
+    private final FactorRepository factorRepository;
     private final ProductsRepository productsRepository;
-    private final ProductFactorsRepository productFactorsRepository;
-    private final CategoriesRepository categoriesRepository;
+    private final CategoryRepository categoryRepository;
+    private final BrandRepository brandRepository;
+    private final ProductNumericFactorRepository numericFactorRepository;
+    private final ProductBooleanFactorRepository booleanFactorRepository;
+    private final ProductEnumFactorRepository enumFactorRepository;
+    private final FactorEnumValueRepository factorEnumValueRepository;
     
     private final ProductMapper productMapper;
-    private final CategoryMapper categoryMapper;
     private final ProductSearchMapper productSearchMapper;
 
     private final ElasticsearchOperations esOperations;
     private final ElasticsearchClient esClient;
 
-    private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
+    //private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
 
     @Override
-    public ProductDto getProduct(Long id, Set<ProductInclude> includes, UUID userId) {
-        ProductEntity entity = productsRepository.findById(id).orElseThrow();
-        List<ProductFactorEntity> factors = null;
+    public ProductResponse createProduct(CreateProductRequest request) {
+        var product = new ProductEntity();
+        product.setBrand(brandRepository.getReferenceById(request.brandId()));
+        product.setCategory(categoryRepository.getReferenceById(request.categoryId()));
+        product.setName(request.name());
+        product.setImageURI(request.imageURI());
 
-        if (includes != null && includes.contains(ProductInclude.FACTORS))
-            factors = productFactorsRepository.findByProductId(id);
+        var savedProduct = productsRepository.save(product);
 
-        kafkaTemplate.send("user-actions", new UserActionEvent(userId, "view"));
+        var savedNumFactors = numericFactorRepository.saveAll(
+            request.numericFactors().stream()
+                .map(f -> {
+                    var factorNum = new ProductNumericFactorEntity();
+                    factorNum.setProduct(savedProduct);
+                    factorNum.setFactor(factorRepository.getReferenceById(f.factorId()));
+                    factorNum.setAmount(f.amount());
+                    return factorNum;
+                })
+                .toList()
+        );
 
-        return productMapper.toDto(entity, factors);
+        var savedBoolFactors = booleanFactorRepository.saveAll(
+            request.booleanFactors().stream()
+                .map(f -> {
+                    var factorBool = new ProductBooleanFactorEntity();
+                    factorBool.setProduct(savedProduct);
+                    factorBool.setFactor(factorRepository.getReferenceById(f.factorId()));
+                    factorBool.setValue(f.value());
+                    return factorBool;
+                })
+                .toList()
+        );
+
+        var savedEnumFactors = enumFactorRepository.saveAll(
+            request.enumFactors().stream()
+                .map(f -> {
+                    var factorEnum = new ProductEnumFactorEntity();
+                    factorEnum.setProduct(savedProduct);
+                    factorEnum.setFactor(factorRepository.getReferenceById(f.factorId()));
+                    factorEnum.setEnumValue(factorEnumValueRepository.getReferenceById(f.enumValueId()));
+                    return factorEnum;
+                })
+                .toList()
+        );
+
+
+    }
+
+    @Override
+    public ProductResponse getProduct(Long id, Set<ProductInclude> includes) {
+        var entity = productsRepository.findById(id).orElseThrow();
+        List<ProductNumericFactorEntity> numFactors = null;
+        List<ProductBooleanFactorEntity> boolFactors = null;
+        List<ProductEnumFactorEntity> enumFactors = null;
+
+        if (includes != null && includes.contains(ProductInclude.FACTORS)) {
+            numFactors = numericFactorRepository.findAllByProductId(id);
+            boolFactors = booleanFactorRepository.findAllByProductId(id);
+            enumFactors = enumFactorRepository.findAllByProductId(id);
+        }
+
+        // kafkaTemplate.send("user-actions", new UserActionEvent(userId, "view"));
+
+        return productMapper.toDto(entity, numFactors, boolFactors, enumFactors);
+    }
+
+    @Override
+    public CategoryDto createCategory(String name) {
+        var entity = new CategoryEntity();
+        entity.setName(name);
+
+        return productMapper.toDto(categoryRepository.save(entity));
     }
 
     @Override
     public Set<CategoryDto> getCategories() {
-        return categoriesRepository.findAll().stream()
-                .map(categoryMapper::toDto)
+        return categoryRepository.findAll().stream()
+                .map(productMapper::toDto)
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public BrandDto createBrand(String name) {
+        var brand = new BrandEntity();
+        brand.setName(name);
+
+        return productMapper.toDto(brandRepository.save(brand));
+    }
+
+    @Override
+    public List<BrandDto> getBrands() {
+        return brandRepository.findAll().stream()
+                .map(productMapper::toDto)
+                .toList();
     }
 
     @Override
@@ -99,8 +189,6 @@ public class ProductServiceImpl implements ProductService {
         Integer maxRating, 
         Pageable pageable
     ) {
-        System.out.println("Sort: " + pageable.getSort()); 
-
         BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
 
         if (query != null && !query.isBlank()) {
