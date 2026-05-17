@@ -1,7 +1,8 @@
 -- абстрактные факторы и их нормы привязаны только к категориям  
 create table categories (
     id bigserial primary key,
-    name varchar(255) not null unique
+    name varchar(255) not null unique,
+    code varchar(255) not null unique -- для бизнес логики
 );
 
 -- только для числовых типов
@@ -59,5 +60,5 @@ create table factor_enum_rules (
     category_id bigint not null references categories(id) on delete cascade,
     enum_value_id bigint not null references factor_enum_values(id) on delete cascade,
     impact int not null default 0, -- штраф/бонус
-    unique (factor_id, category_id, enum_value_id)
+    unique (category_id, enum_value_id)
 );

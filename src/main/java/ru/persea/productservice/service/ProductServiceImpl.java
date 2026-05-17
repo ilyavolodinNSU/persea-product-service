@@ -1,45 +1,28 @@
 package ru.persea.productservice.service;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.suggest.response.Suggest;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
-import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
-import co.elastic.clients.elasticsearch.core.search.SuggestionBuilders;
-import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.dto.UserActionEvent;
-import ru.persea.productservice.dto.factor.FactorDto;
 import ru.persea.productservice.dto.product.BrandDto;
 import ru.persea.productservice.dto.product.CategoryDto;
 import ru.persea.productservice.dto.product.ProductInclude;
 import ru.persea.productservice.dto.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.request.CreateCategory;
 import ru.persea.productservice.dto.product.request.CreateProductRequest;
 import ru.persea.productservice.dto.product.response.ProductResponse;
 import ru.persea.productservice.entity.product.BrandEntity;
@@ -59,9 +42,6 @@ import ru.persea.productservice.repository.CategoryRepository;
 import ru.persea.productservice.repository.FactorEnumValueRepository;
 import ru.persea.productservice.repository.ProductNumericFactorRepository;
 import ru.persea.productservice.repository.ProductsRepository;
-import tools.jackson.databind.ObjectMapper;
-
-import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 @Service
 @RequiredArgsConstructor
@@ -81,9 +61,12 @@ public class ProductServiceImpl implements ProductService {
     private final ElasticsearchOperations esOperations;
     private final ElasticsearchClient esClient;
 
+    private final RatingService ratingService;
+
     //private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
 
     @Override
+    @Transactional
     public ProductResponse createProduct(CreateProductRequest request) {
         var product = new ProductEntity();
         product.setBrand(brandRepository.getReferenceById(request.brandId()));
@@ -91,13 +74,13 @@ public class ProductServiceImpl implements ProductService {
         product.setName(request.name());
         product.setImageURI(request.imageURI());
 
-        var savedProduct = productsRepository.save(product);
+        productsRepository.save(product);
 
-        var savedNumFactors = numericFactorRepository.saveAll(
+        numericFactorRepository.saveAll(
             request.numericFactors().stream()
                 .map(f -> {
                     var factorNum = new ProductNumericFactorEntity();
-                    factorNum.setProduct(savedProduct);
+                    factorNum.setProduct(product);
                     factorNum.setFactor(factorRepository.getReferenceById(f.factorId()));
                     factorNum.setAmount(f.amount());
                     return factorNum;
@@ -105,11 +88,11 @@ public class ProductServiceImpl implements ProductService {
                 .toList()
         );
 
-        var savedBoolFactors = booleanFactorRepository.saveAll(
+        booleanFactorRepository.saveAll(
             request.booleanFactors().stream()
                 .map(f -> {
                     var factorBool = new ProductBooleanFactorEntity();
-                    factorBool.setProduct(savedProduct);
+                    factorBool.setProduct(product);
                     factorBool.setFactor(factorRepository.getReferenceById(f.factorId()));
                     factorBool.setValue(f.value());
                     return factorBool;
@@ -117,11 +100,11 @@ public class ProductServiceImpl implements ProductService {
                 .toList()
         );
 
-        var savedEnumFactors = enumFactorRepository.saveAll(
+        enumFactorRepository.saveAll(
             request.enumFactors().stream()
                 .map(f -> {
                     var factorEnum = new ProductEnumFactorEntity();
-                    factorEnum.setProduct(savedProduct);
+                    factorEnum.setProduct(product);
                     factorEnum.setFactor(factorRepository.getReferenceById(f.factorId()));
                     factorEnum.setEnumValue(factorEnumValueRepository.getReferenceById(f.enumValueId()));
                     return factorEnum;
@@ -129,40 +112,45 @@ public class ProductServiceImpl implements ProductService {
                 .toList()
         );
 
+        product.setRating(ratingService.calculate(product.getId()));
+        productsRepository.save(product);
 
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductResponse getProduct(Long id, Set<ProductInclude> includes) {
-        var entity = productsRepository.findById(id).orElseThrow();
-        List<ProductNumericFactorEntity> numFactors = null;
-        List<ProductBooleanFactorEntity> boolFactors = null;
-        List<ProductEnumFactorEntity> enumFactors = null;
+        var product = productsRepository.findById(id).orElseThrow();
 
-        if (includes != null && includes.contains(ProductInclude.FACTORS)) {
-            numFactors = numericFactorRepository.findAllByProductId(id);
-            boolFactors = booleanFactorRepository.findAllByProductId(id);
-            enumFactors = enumFactorRepository.findAllByProductId(id);
-        }
+        boolean fetchFactors = includes != null && includes.contains(ProductInclude.FACTORS);
 
         // kafkaTemplate.send("user-actions", new UserActionEvent(userId, "view"));
 
-        return productMapper.toDto(entity, numFactors, boolFactors, enumFactors);
+        System.out.println(numericFactorRepository.findAllWithRules(id));
+
+        return productMapper.toDto(
+            product,
+            fetchFactors ? numericFactorRepository.findAllWithRules(id) : null,
+            fetchFactors ? booleanFactorRepository.findAllWithRules(id) : null,
+            fetchFactors ? enumFactorRepository.findAllWithRules(id) : null
+        );
     }
 
     @Override
-    public CategoryDto createCategory(String name) {
+    public CategoryDto createCategory(CreateCategory request) {
         var entity = new CategoryEntity();
-        entity.setName(name);
+        entity.setName(request.name());
+        entity.setCode(request.code());
 
         return productMapper.toDto(categoryRepository.save(entity));
     }
 
     @Override
-    public Set<CategoryDto> getCategories() {
+    public List<CategoryDto> getCategories() {
         return categoryRepository.findAll().stream()
                 .map(productMapper::toDto)
-                .collect(Collectors.toSet());
+                .toList();
     }
 
     @Override

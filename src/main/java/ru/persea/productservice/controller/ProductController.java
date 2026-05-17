@@ -5,10 +5,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
+import ru.persea.productservice.dto.product.BrandDto;
 import ru.persea.productservice.dto.product.CategoryDto;
 import ru.persea.productservice.dto.product.ProductInclude;
 import ru.persea.productservice.dto.product.ProductSearchDto;
-import ru.persea.productservice.dto.product.response.ProductDto;
+import ru.persea.productservice.dto.product.request.CreateCategory;
+import ru.persea.productservice.dto.product.request.CreateProductRequest;
+import ru.persea.productservice.dto.product.response.ProductResponse;
 import ru.persea.productservice.service.ProductService;
 
 import java.util.List;
@@ -19,6 +22,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 @RestController
 @RequestMapping("/products")
@@ -26,46 +32,38 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class ProductController {
     private final ProductService productService;
 
-    @GetMapping
-    public ResponseEntity<List<ProductSearchDto>> searchProducts(
-        @RequestParam(value = "q", required = false) String query,
-        @RequestParam(value = "category_id", required = false) Integer categoryId,
-        @RequestParam(value = "brand_ids", required = false) Set<Integer> brandsIds,
-        @RequestParam(value = "min_rating", required = false) Integer minRating,
-        @RequestParam(value = "max_rating", required = false) Integer maxRating,
-        Pageable pageable
-    ) {
-        return ResponseEntity.ok(
-            productService.searchProducts(
-                query,
-                categoryId, 
-                brandsIds, 
-                minRating, 
-                maxRating, 
-                pageable
-            )
-        );
+    @PostMapping("/categories")
+    public ResponseEntity<CategoryDto> createCategory(@RequestBody CreateCategory request) {
+        return ResponseEntity.ok(productService.createCategory(request));
     }
     
     @GetMapping("/categories")
-    public ResponseEntity<Set<CategoryDto>> getCategories() {
+    public ResponseEntity<List<CategoryDto>> getCategories() {
         return ResponseEntity.ok(productService.getCategories());
     }
 
+    @PostMapping("/brands")
+    public ResponseEntity<BrandDto> createBrand(@RequestBody String name) {
+        return ResponseEntity.ok(productService.createBrand(name));
+    }
+
+    @GetMapping("/brands")
+    public ResponseEntity<List<BrandDto>> getBrands() {
+        return ResponseEntity.ok(productService.getBrands());
+    }
+
+    @PostMapping
+    public ResponseEntity<ProductResponse> createProduct(
+        @RequestBody CreateProductRequest request
+    ) {
+        return ResponseEntity.ok(productService.createProduct(request));
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDto> getProduct(
+    public ResponseEntity<ProductResponse> getProduct(
         @PathVariable("id") Long id,
         @RequestParam(value = "include", required = false) Set<ProductInclude> includes
     ) {
-        return ResponseEntity.ok(productService.getProduct(id, includes, UUID.randomUUID()));
+        return ResponseEntity.ok(productService.getProduct(id, includes));
     }
-
-    @GetMapping("/suggestions")
-    public ResponseEntity<List<String>> getSuggestions(
-        @RequestParam("q") String query, 
-        @RequestParam(value = "limit", defaultValue = "5", required = false) Integer limit
-    ) {
-        return ResponseEntity.ok(productService.getSuggestions(query, limit));
-    }
-    
 }

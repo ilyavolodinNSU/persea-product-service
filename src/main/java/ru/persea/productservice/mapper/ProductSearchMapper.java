@@ -6,10 +6,7 @@ import org.mapstruct.MappingConstants;
 import ru.persea.productservice.dto.product.ProductSearchDto;
 import ru.persea.productservice.entity.product.ProductDocument;
 
-@Mapper(
-    componentModel = MappingConstants.ComponentModel.SPRING,
-    uses = ProductFactorMapper.class
-)
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface ProductSearchMapper {
     ProductSearchDto toDto(ProductDocument document);
 }

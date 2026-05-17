@@ -45,6 +45,6 @@ public class ProductEntity {
     @Column(name = "image_uri")
     private String imageURI;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", insertable = false, updatable = false)
     private Instant updatedAt;
 }

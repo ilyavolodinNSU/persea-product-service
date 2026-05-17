@@ -28,11 +28,11 @@ public interface FactorService {
 
     public List<FactorDto> getFactors();
 
-    public FactorNumericRuleResponse createFactorNumericRule(CreateFactorNumericRuleRequest request);
+    public FactorNumericRuleResponse createFactorNumericRule(Long factorId, CreateFactorNumericRuleRequest request);
 
-    public FactorBooleanRuleResponse createFactorBooleanRule(CreateFactorBooleanRuleRequest request);
+    public FactorBooleanRuleResponse createFactorBooleanRule(Long factorId, CreateFactorBooleanRuleRequest request);
 
-    public FactorEnumValueResponse createFactorEnumValue(CreateFactorEnumValueRequest request);
+    public FactorEnumValueResponse createFactorEnumValue(Long factorId, CreateFactorEnumValueRequest request);
 
     public FactorEnumRuleResponse createFactorEnumRule(CreateFactorEnumRuleRequest request);
 }

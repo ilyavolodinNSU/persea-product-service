@@ -97,10 +97,13 @@ public class FactorServiceImpl implements FactorService {
     }
 
     @Override
-    public FactorNumericRuleResponse createFactorNumericRule(CreateFactorNumericRuleRequest request) {
+    public FactorNumericRuleResponse createFactorNumericRule(
+        Long factorId,
+        CreateFactorNumericRuleRequest request
+    ) {
         var numericRule = new FactorNumericRuleEntity();
         numericRule.setCategory(categorysRepository.getReferenceById(request.categoryId()));
-        numericRule.setFactor(factorRepository.getReferenceById(request.factorId()));
+        numericRule.setFactor(factorRepository.getReferenceById(factorId));
         numericRule.setUnit(unitRepository.getReferenceById(request.unitId()));
         numericRule.setMinValue(request.minValue());
         numericRule.setMaxValue(request.maxValue());
@@ -109,26 +112,34 @@ public class FactorServiceImpl implements FactorService {
     }
 
     @Override
-    public FactorBooleanRuleResponse createFactorBooleanRule(CreateFactorBooleanRuleRequest request) {
+    public FactorBooleanRuleResponse createFactorBooleanRule(
+        Long factorId,
+        CreateFactorBooleanRuleRequest request
+    ) {
         var booleanRule = new FactorBooleanRuleEntity();
         booleanRule.setCategory(categorysRepository.getReferenceById(request.categoryId()));
-        booleanRule.setFactor(factorRepository.getReferenceById(request.factorId()));
+        booleanRule.setFactor(factorRepository.getReferenceById(factorId));
         booleanRule.setImpact(request.impact());
 
         return factorMapper.toDto(factorBooleanRuleRepository.save(booleanRule));
     }
 
     @Override
-    public FactorEnumValueResponse createFactorEnumValue(CreateFactorEnumValueRequest request) {
+    public FactorEnumValueResponse createFactorEnumValue(
+        Long factorId,
+        CreateFactorEnumValueRequest request
+    ) {
         var enumValue = new FactorEnumValueEntity();
-        enumValue.setFactor(factorRepository.getReferenceById(request.factorId()));
+        enumValue.setFactor(factorRepository.getReferenceById(factorId));
         enumValue.setValue(request.value());
 
         return factorMapper.toDto(factorEnumValueRepository.save(enumValue));
     }
 
     @Override
-    public FactorEnumRuleResponse createFactorEnumRule(CreateFactorEnumRuleRequest request) {
+    public FactorEnumRuleResponse createFactorEnumRule(
+        CreateFactorEnumRuleRequest request
+    ) {
         var enumRule = new FactorEnumRuleEntity();
         enumRule.setCategory(categorysRepository.getReferenceById(request.categoryId()));
         enumRule.setEnumValue(factorEnumValueRepository.getReferenceById(request.valueId()));

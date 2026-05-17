@@ -11,13 +11,14 @@ import ru.persea.productservice.dto.product.BrandDto;
 import ru.persea.productservice.dto.product.CategoryDto;
 import ru.persea.productservice.dto.product.ProductInclude;
 import ru.persea.productservice.dto.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.request.CreateCategory;
 import ru.persea.productservice.dto.product.request.CreateProductRequest;
 import ru.persea.productservice.dto.product.response.ProductResponse;
 
 public interface ProductService {
-    public CategoryDto createCategory(String name);
+    public CategoryDto createCategory(CreateCategory request);
 
-    public Set<CategoryDto> getCategories();
+    public List<CategoryDto> getCategories();
 
     public BrandDto createBrand(String name);
 

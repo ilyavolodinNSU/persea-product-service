@@ -26,23 +26,13 @@ public interface ProductMapper {
 
     ProductResponse toDto(ProductEntity entity);
 
-    @Mapping(target = "factorId", source = "factor.id")
-    @Mapping(target = "factorName", source = "factor.name")
-    ProductNumericFactorResponse toDto(ProductNumericFactorEntity entity);
-
-    @Mapping(target = "factorId", source = "factor.id")
-    @Mapping(target = "factorName", source = "factor.name")
-    ProductBooleanFactorResponse toDto(ProductBooleanFactorEntity entity);
-
-    @Mapping(target = "factorId", source = "factor.id")
-    @Mapping(target = "factorName", source = "factor.name")
-    @Mapping(target = "enumValue", source = "enumValue.value")
-    ProductEnumFactorResponse toDto(ProductEnumFactorEntity entity);
-
+    @Mapping(target = "numericFactors", source = "numFactors")
+    @Mapping(target = "booleanFactors", source = "boolFactors")
+    @Mapping(target = "enumFactors", source = "enumFactors")
     ProductResponse toDto(
         ProductEntity entity, 
-        List<ProductNumericFactorEntity> numFactors, 
-        List<ProductBooleanFactorEntity> boolFactors, 
-        List<ProductEnumFactorEntity> enumFactors
+        List<ProductNumericFactorResponse> numFactors, 
+        List<ProductBooleanFactorResponse> boolFactors, 
+        List<ProductEnumFactorResponse> enumFactors
     );
 }
