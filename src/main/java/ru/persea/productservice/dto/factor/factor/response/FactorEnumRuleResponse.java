@@ -1,6 +1,6 @@
 package ru.persea.productservice.dto.factor.response;
 
-import ru.persea.productservice.dto.product.CategoryDto;
+import ru.persea.productservice.dto.category.response.CategoryDto;
 
 public record FactorEnumRuleResponse (
     Long id,

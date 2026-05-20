@@ -3,7 +3,9 @@ package ru.persea.productservice.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import ru.persea.productservice.dto.product.response.ProductNumericFactorResponse;
@@ -26,4 +28,8 @@ public interface ProductNumericFactorRepository extends JpaRepository<ProductNum
         where p.id = :productId
     """)
     public List<ProductNumericFactorResponse> findAllWithRules(Long productId);
+
+    @Modifying
+    @Query("DELETE FROM ProductNumericFactorEntity f WHERE f.product.id = :productId")
+    void deleteAllByProductId(@Param("productId") Long productId);
 }

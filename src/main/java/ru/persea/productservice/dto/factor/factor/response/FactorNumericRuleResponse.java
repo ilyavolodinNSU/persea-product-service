@@ -1,8 +1,7 @@
 package ru.persea.productservice.dto.factor.response;
 
-import ru.persea.productservice.dto.factor.FactorDto;
-import ru.persea.productservice.dto.factor.UnitDto;
-import ru.persea.productservice.dto.product.CategoryDto;
+import ru.persea.productservice.dto.unit.response.UnitDto;
+import ru.persea.productservice.dto.category.response.CategoryDto;
 
 public record FactorNumericRuleResponse (
     Long id,

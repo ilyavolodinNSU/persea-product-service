@@ -1,7 +1,5 @@
 package ru.persea.productservice.dto.factor.response;
 
-import ru.persea.productservice.dto.factor.FactorDto;
-
 public record FactorEnumValueResponse (
     Long id,
     FactorDto factor,

@@ -1,7 +1,7 @@
 package ru.persea.productservice.dto.product.response;
 
-import ru.persea.productservice.dto.product.BrandDto;
-import ru.persea.productservice.dto.product.CategoryDto;
+import ru.persea.productservice.dto.brand.response.BrandDto;
+import ru.persea.productservice.dto.category.response.CategoryDto;
 
 public record ProductItemResponse(
     Long id,
