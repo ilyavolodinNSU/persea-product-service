@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.repository.ProductsRepository;
+import ru.persea.productservice.repository.product.ProductsRepository;
 
 @Service
 @RequiredArgsConstructor

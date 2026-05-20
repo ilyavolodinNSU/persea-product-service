@@ -1,11 +1,14 @@
 package ru.persea.productservice.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.repository.ProductBooleanFactorRepository;
-import ru.persea.productservice.repository.ProductEnumFactorRepository;
-import ru.persea.productservice.repository.ProductNumericFactorRepository;
+import ru.persea.productservice.dto.product.product.response.ProductNumericFactorResponse;
+import ru.persea.productservice.repository.product.ProductBooleanFactorRepository;
+import ru.persea.productservice.repository.product.ProductEnumFactorRepository;
+import ru.persea.productservice.repository.product.ProductNumericFactorRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -25,41 +28,49 @@ public class WaterRatingCalculator implements RatingCalculator {
     public int calculate(Long productId) {
         var numFactors = numericFactorRepository.findAllWithRules(productId);
 
-        // субиндексироание от 0 до 1
-        var SIs = numFactors.stream()
+        var safetyFactors = numFactors.stream()
+            .filter(f -> f.minValue() == 0.0).toList();
+        var mineralFactors = numFactors.stream()
+            .filter(f -> f.minValue() > 0.0).toList();
+
+        double safetyScore  = calculateDuaWqi(safetyFactors);
+        double mineralScore = calculateDuaWqi(mineralFactors);
+
+        // 70% безопасность, 30% физиологическая полноценность
+        double finalScore = 0.7 * safetyScore + 0.3 * mineralScore;
+
+        return (int) Math.round(finalScore);
+    }
+
+    private double calculateDuaWqi(List<ProductNumericFactorResponse> factors) {
+        if (factors.isEmpty()) return 100.0;
+
+        var SIs = factors.stream()
             .map(f -> {
-                Double idealValue = (f.minValue() == 0.0) 
-                    ? 0.0 // чем меньше тем лучше
-                    : f.minValue() + (f.maxValue()-f.minValue()) / 2.0; // серидина рекомендованного диапазона
+                double idealValue = f.minValue() == 0.0
+                    ? 0.0
+                    : f.minValue() + (f.maxValue() - f.minValue()) / 2.0;
 
-                if (f.maxValue()-idealValue == 0.0) return 0.0;
+                double maxDeviation = f.minValue() == 0.0
+                    ? f.maxValue()
+                    : (f.maxValue() - f.minValue()) / 2.0;
 
-                return Math.min(1.0, Math.abs((f.amount()-idealValue) / (f.maxValue()-idealValue)));
+                if (maxDeviation == 0.0) return 0.0;
+
+                return Math.min(1.0, Math.abs(f.amount() - idealValue) / maxDeviation);
             })
             .toList();
-        
-        System.out.println("SIs:");
-        SIs.forEach(System.out::println);
 
-        // взвешивание
-        Double sum = SIs.stream().mapToDouble(si -> Math.exp(si) - 1).sum();
+        double sum = SIs.stream().mapToDouble(si -> Math.exp(si) - 1).sum();
 
-        System.out.println("sum "+sum);
+        if (sum == 0.0) return 100.0;
 
-        var Ws = SIs.stream().map(SI -> (Math.exp(SI)-1)/sum).toList();
+        double penalty = 0.0;
+        for (int i = 0; i < SIs.size(); i++) {
+            double w = (Math.exp(SIs.get(i)) - 1) / sum;
+            penalty += w * SIs.get(i) * 100;
+        }
 
-        System.out.println("Ws:");
-        Ws.forEach(System.out::println);
-
-        // штраф
-        Double penalty = 0.0;
-
-        for (int i = 0; i < Ws.size(); i++) penalty += Ws.get(i)*SIs.get(i)*100;
-
-        System.out.println("penalty "+penalty);
-
-        System.out.println("rating "+(int)(100.0-penalty));
-        
-        return (int) Math.round(100.0-penalty);
+        return 100.0 - penalty;
     }
 }

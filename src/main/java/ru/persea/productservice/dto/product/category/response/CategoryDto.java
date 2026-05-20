@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.category.response;
+package ru.persea.productservice.dto.product.category.response;
 
 public record CategoryDto (
     Long id,

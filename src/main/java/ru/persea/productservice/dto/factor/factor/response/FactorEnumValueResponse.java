@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.factor.response;
+package ru.persea.productservice.dto.factor.factor.response;
 
 public record FactorEnumValueResponse (
     Long id,

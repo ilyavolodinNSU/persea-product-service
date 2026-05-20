@@ -1,12 +1,14 @@
-package ru.persea.productservice.repository;
+package ru.persea.productservice.repository.product;
 
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import ru.persea.productservice.dto.product.response.ProductBooleanFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductBooleanFactorResponse;
 import ru.persea.productservice.entity.product.ProductBooleanFactorEntity;
 
 @Repository
@@ -25,4 +27,8 @@ public interface ProductBooleanFactorRepository extends JpaRepository<ProductBoo
         where p.id = :productId
     """)
     public List<ProductBooleanFactorResponse> findAllWithRules(Long productId);
+
+    @Modifying
+    @Query("DELETE FROM ProductBooleanFactorEntity f WHERE f.product.id = :productId")
+    void deleteAllByProductId(@Param("productId") Long productId);
 }

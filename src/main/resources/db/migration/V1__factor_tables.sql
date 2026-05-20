@@ -1,24 +1,24 @@
 -- абстрактные факторы и их нормы привязаны только к категориям  
-create table categories (
+create table if not exists categories (
     id bigserial primary key,
     name varchar(255) not null unique,
     code varchar(255) not null unique -- для бизнес логики
 );
 
 -- только для числовых типов
-create table units (
+create table if not exists units (
     id smallserial primary key,
     name varchar(50) not null unique
 );
 
 -- числовой, булевый
-create table factor_types (
+create table if not exists factor_types (
     id smallserial primary key,
     name varchar(50) not null unique
 );
 -- список всех существующих абстрактных факторов в системе
 -- например: сахар, нитраты, тип упаковки
-create table factors (
+create table if not exists factors (
     id bigserial primary key,
     name varchar(255) not null unique,
     factor_type_id smallint not null references factor_types(id) on delete cascade,
@@ -26,19 +26,19 @@ create table factors (
 );
 
 -- если factor_type = num
-create table factor_numeric_rules (
+create table if not exists factor_numeric_rules (
     id bigserial primary key,
     factor_id bigint not null references factors(id) on delete cascade,
     category_id bigint not null references categories(id) on delete cascade,
     unit_id smallint references units(id),
-    min_value numeric(12,6) not null,
-    max_value numeric(12,6) not null,
+    min_value numeric(15,10) not null,
+    max_value numeric(15,10) not null,
     -- штраф расчитывается бизнес логикой
     unique (factor_id, category_id)
 );
 
 -- если factor_type = bool
-create table factor_boolean_rules (
+create table if not exists factor_boolean_rules (
     id bigserial primary key,
     factor_id bigint not null references factors(id) on delete cascade,
     category_id bigint not null references categories(id) on delete cascade,
@@ -47,7 +47,7 @@ create table factor_boolean_rules (
 );
 
 -- словарь
-create table factor_enum_values (
+create table if not exists factor_enum_values (
     id bigserial primary key,
     factor_id bigint not null references factors(id) on delete cascade,
     value varchar(255) not null,
@@ -55,7 +55,7 @@ create table factor_enum_values (
 );
 
 -- если factor_type = enum
-create table factor_enum_rules (
+create table if not exists factor_enum_rules (
     id bigserial primary key,
     category_id bigint not null references categories(id) on delete cascade,
     enum_value_id bigint not null references factor_enum_values(id) on delete cascade,

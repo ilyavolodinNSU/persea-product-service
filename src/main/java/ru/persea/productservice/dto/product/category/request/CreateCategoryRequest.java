@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.category.request;
+package ru.persea.productservice.dto.product.category.request;
 
 public record CreateCategoryRequest(
     String name,

@@ -10,6 +10,7 @@
     "database.dbname" : "product_service",
     "table.include.list": "public.products",
     "topic.prefix": "data.cdc",
-    "heartbeat.interval.ms": "5000"
+    "heartbeat.interval.ms": "5000",
+    "slot.name": "product_service_slot_cdc"
   }
 }

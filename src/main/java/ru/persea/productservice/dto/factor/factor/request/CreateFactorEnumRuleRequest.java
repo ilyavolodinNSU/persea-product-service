@@ -1,6 +1,4 @@
-package ru.persea.productservice.dto.factor.request;
-
-import java.util.List;
+package ru.persea.productservice.dto.factor.factor.request;
 
 public record CreateFactorEnumRuleRequest (
     Long categoryId,

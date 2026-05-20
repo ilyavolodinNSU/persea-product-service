@@ -1,16 +1,15 @@
 package ru.persea.productservice.mapper;
 
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 
-import ru.persea.productservice.dto.factor.FactorDto;
-import ru.persea.productservice.dto.factor.FactorTypeDto;
-import ru.persea.productservice.dto.factor.UnitDto;
-import ru.persea.productservice.dto.factor.response.FactorBooleanRuleResponse;
-import ru.persea.productservice.dto.factor.response.FactorEnumRuleResponse;
-import ru.persea.productservice.dto.factor.response.FactorEnumValueResponse;
-import ru.persea.productservice.dto.factor.response.FactorNumericRuleResponse;
+import ru.persea.productservice.dto.factor.factor.response.FactorDto;
+import ru.persea.productservice.dto.factor.factorType.response.FactorTypeDto;
+import ru.persea.productservice.dto.factor.unit.response.UnitDto;
+import ru.persea.productservice.dto.factor.factor.response.FactorBooleanRuleResponse;
+import ru.persea.productservice.dto.factor.factor.response.FactorEnumRuleResponse;
+import ru.persea.productservice.dto.factor.factor.response.FactorEnumValueResponse;
+import ru.persea.productservice.dto.factor.factor.response.FactorNumericRuleResponse;
 import ru.persea.productservice.entity.factor.FactorBooleanRuleEntity;
 import ru.persea.productservice.entity.factor.FactorEntity;
 import ru.persea.productservice.entity.factor.FactorEnumRuleEntity;

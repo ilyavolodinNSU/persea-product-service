@@ -1,6 +1,6 @@
-package ru.persea.productservice.dto.factor.response;
+package ru.persea.productservice.dto.factor.factor.response;
 
-import ru.persea.productservice.dto.factorType.response.FactorTypeDto;
+import ru.persea.productservice.dto.factor.factorType.response.FactorTypeDto;
 
 public record FactorDto(
     String name,

@@ -1,4 +1,4 @@
-package ru.persea.productservice.repository;
+package ru.persea.productservice.repository.product;
 
 import java.util.List;
 
@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import ru.persea.productservice.dto.product.response.ProductNumericFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductNumericFactorResponse;
 import ru.persea.productservice.entity.product.ProductNumericFactorEntity;
 
 @Repository

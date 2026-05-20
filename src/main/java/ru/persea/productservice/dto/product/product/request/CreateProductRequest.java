@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.product.request;
+package ru.persea.productservice.dto.product.product.request;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.product;
+package ru.persea.productservice.dto.product.product;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

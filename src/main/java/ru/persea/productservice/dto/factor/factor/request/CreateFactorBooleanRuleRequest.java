@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.factor.request;
+package ru.persea.productservice.dto.factor.factor.request;
 
 public record CreateFactorBooleanRuleRequest (
     Long categoryId,

@@ -1,4 +1,4 @@
-package ru.persea.productservice.repository;
+package ru.persea.productservice.repository.factor;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

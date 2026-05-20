@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.product.response;
+package ru.persea.productservice.dto.product.product.response;
 
 public record ProductNumericFactorResponse (
     Long id,

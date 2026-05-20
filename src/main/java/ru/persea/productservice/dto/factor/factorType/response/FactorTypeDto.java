@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.factorType.response;
+package ru.persea.productservice.dto.factor.factorType.response;
 
 public record FactorTypeDto (
     Short id,

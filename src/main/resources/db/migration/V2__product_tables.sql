@@ -1,10 +1,10 @@
-create table brands (
+create table if not exists brands (
     id bigserial primary key,
     name varchar(255) not null unique,
     description text
 );
 
-create table products (
+create table if not exists products (
     id bigserial primary key,
     name varchar(255) not null,
     brand_id bigint not null references brands(id),
@@ -14,15 +14,15 @@ create table products (
     updated_at timestamp not null default now() -- для логстеша
 );
 
-create table product_numeric_factors (
+create table if not exists product_numeric_factors (
     id bigserial primary key,
     product_id bigint not null references products(id) on delete cascade,
     factor_id bigint not null references factors(id),
-    amount numeric(12,6) not null,
+    amount numeric(15,10) not null,
     unique (product_id, factor_id)
 );
 
-create table product_boolean_factors (
+create table if not exists product_boolean_factors (
     id bigserial primary key,
     product_id bigint not null references products(id) on delete cascade,
     factor_id bigint not null references factors(id),
@@ -30,7 +30,7 @@ create table product_boolean_factors (
     unique (product_id, factor_id)
 );
 
-create table product_enum_factors (
+create table if not exists product_enum_factors (
     id bigserial primary key,
     product_id bigint not null references products(id) on delete cascade,
     factor_id bigint not null references factors(id),

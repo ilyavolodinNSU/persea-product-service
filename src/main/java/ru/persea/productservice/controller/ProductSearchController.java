@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.dto.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.product.ProductSearchDto;
 import ru.persea.productservice.service.ProductService;
 
 import java.util.List;

@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.brand.response;
+package ru.persea.productservice.dto.product.brand.response;
 
 public record BrandDto (
     Long id,

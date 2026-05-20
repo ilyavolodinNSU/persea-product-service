@@ -1,4 +1,4 @@
-package ru.persea.productservice.dto.product;
+package ru.persea.productservice.dto.product.product;
 
 public record ProductSearchDto(
     Long id,

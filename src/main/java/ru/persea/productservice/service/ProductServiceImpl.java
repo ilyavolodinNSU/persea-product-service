@@ -1,8 +1,12 @@
 package ru.persea.productservice.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -18,13 +22,17 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.dto.product.BrandDto;
-import ru.persea.productservice.dto.product.CategoryDto;
-import ru.persea.productservice.dto.product.ProductInclude;
-import ru.persea.productservice.dto.product.ProductSearchDto;
-import ru.persea.productservice.dto.product.request.CreateCategory;
-import ru.persea.productservice.dto.product.request.CreateProductRequest;
-import ru.persea.productservice.dto.product.response.ProductResponse;
+import ru.persea.productservice.dto.product.brand.request.CreateBrandRequest;
+import ru.persea.productservice.dto.product.brand.request.UpdateBrandRequest;
+import ru.persea.productservice.dto.product.brand.response.BrandDto;
+import ru.persea.productservice.dto.product.category.request.CreateCategoryRequest;
+import ru.persea.productservice.dto.product.category.request.UpdateCategoryRequest;
+import ru.persea.productservice.dto.product.category.response.CategoryDto;
+import ru.persea.productservice.dto.product.product.ProductInclude;
+import ru.persea.productservice.dto.product.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.product.request.*;
+import ru.persea.productservice.dto.product.product.response.ProductResponse;
+import ru.persea.productservice.entity.outbox.OutboxEvent;
 import ru.persea.productservice.entity.product.BrandEntity;
 import ru.persea.productservice.entity.product.CategoryEntity;
 import ru.persea.productservice.entity.product.ProductBooleanFactorEntity;
@@ -34,14 +42,16 @@ import ru.persea.productservice.entity.product.ProductEnumFactorEntity;
 import ru.persea.productservice.entity.product.ProductNumericFactorEntity;
 import ru.persea.productservice.mapper.ProductMapper;
 import ru.persea.productservice.mapper.ProductSearchMapper;
-import ru.persea.productservice.repository.FactorRepository;
-import ru.persea.productservice.repository.ProductBooleanFactorRepository;
-import ru.persea.productservice.repository.ProductEnumFactorRepository;
-import ru.persea.productservice.repository.BrandRepository;
-import ru.persea.productservice.repository.CategoryRepository;
-import ru.persea.productservice.repository.FactorEnumValueRepository;
-import ru.persea.productservice.repository.ProductNumericFactorRepository;
-import ru.persea.productservice.repository.ProductsRepository;
+import ru.persea.productservice.repository.factor.FactorRepository;
+import ru.persea.productservice.repository.product.OutboxEventRepository;
+import ru.persea.productservice.repository.product.ProductBooleanFactorRepository;
+import ru.persea.productservice.repository.product.ProductEnumFactorRepository;
+import ru.persea.productservice.repository.product.BrandRepository;
+import ru.persea.productservice.repository.product.CategoryRepository;
+import ru.persea.productservice.repository.factor.FactorEnumValueRepository;
+import ru.persea.productservice.repository.product.ProductNumericFactorRepository;
+import ru.persea.productservice.repository.product.ProductsRepository;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -54,6 +64,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductBooleanFactorRepository booleanFactorRepository;
     private final ProductEnumFactorRepository enumFactorRepository;
     private final FactorEnumValueRepository factorEnumValueRepository;
+    private final OutboxEventRepository outboxEventRepository;
     
     private final ProductMapper productMapper;
     private final ProductSearchMapper productSearchMapper;
@@ -63,21 +74,33 @@ public class ProductServiceImpl implements ProductService {
 
     private final RatingService ratingService;
 
+    private final ObjectMapper objectMapper;
+
     //private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
 
-    @Override
-    @Transactional
-    public ProductResponse createProduct(CreateProductRequest request) {
-        var product = new ProductEntity();
-        product.setBrand(brandRepository.getReferenceById(request.brandId()));
-        product.setCategory(categoryRepository.getReferenceById(request.categoryId()));
-        product.setName(request.name());
-        product.setImageURI(request.imageURI());
+    private CategoryEntity getCategoryEntity(Long id) {
+        return categoryRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Категория не найдена: " + id));
+    }
 
-        productsRepository.save(product);
+    private BrandEntity getBrandEntity(Long id) {
+        return brandRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Бренд не найден: " + id));
+    }
 
+    private ProductEntity getProductEntity(Long id) {
+        return productsRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Продукт не найден: " + id));
+    }
+
+    private void saveFactors(
+            ProductEntity product,
+            List<ProductNumericFactorRequest> numericFactors,
+            List<ProductBooleanFactorRequest> booleanFactors,
+            List<ProductEnumFactorRequest> enumFactors
+    ) {
         numericFactorRepository.saveAll(
-            request.numericFactors().stream()
+            numericFactors.stream()
                 .map(f -> {
                     var factorNum = new ProductNumericFactorEntity();
                     factorNum.setProduct(product);
@@ -89,7 +112,7 @@ public class ProductServiceImpl implements ProductService {
         );
 
         booleanFactorRepository.saveAll(
-            request.booleanFactors().stream()
+            booleanFactors.stream()
                 .map(f -> {
                     var factorBool = new ProductBooleanFactorEntity();
                     factorBool.setProduct(product);
@@ -101,7 +124,7 @@ public class ProductServiceImpl implements ProductService {
         );
 
         enumFactorRepository.saveAll(
-            request.enumFactors().stream()
+            enumFactors.stream()
                 .map(f -> {
                     var factorEnum = new ProductEnumFactorEntity();
                     factorEnum.setProduct(product);
@@ -111,34 +134,13 @@ public class ProductServiceImpl implements ProductService {
                 })
                 .toList()
         );
-
-        product.setRating(ratingService.calculate(product.getId()));
-        productsRepository.save(product);
-
-        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public ProductResponse getProduct(Long id, Set<ProductInclude> includes) {
-        var product = productsRepository.findById(id).orElseThrow();
-
-        boolean fetchFactors = includes != null && includes.contains(ProductInclude.FACTORS);
-
-        // kafkaTemplate.send("user-actions", new UserActionEvent(userId, "view"));
-
-        System.out.println(numericFactorRepository.findAllWithRules(id));
-
-        return productMapper.toDto(
-            product,
-            fetchFactors ? numericFactorRepository.findAllWithRules(id) : null,
-            fetchFactors ? booleanFactorRepository.findAllWithRules(id) : null,
-            fetchFactors ? enumFactorRepository.findAllWithRules(id) : null
-        );
-    }
+    // categories
 
     @Override
-    public CategoryDto createCategory(CreateCategory request) {
+    @Transactional
+    public CategoryDto createCategory(CreateCategoryRequest request) {
         var entity = new CategoryEntity();
         entity.setName(request.name());
         entity.setCode(request.code());
@@ -154,9 +156,33 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public BrandDto createBrand(String name) {
+    public CategoryDto getCategory(Long id) {
+        return productMapper.toDto(getCategoryEntity(id));
+    }
+
+    @Override
+    @Transactional
+    public CategoryDto updateCategory(Long id, UpdateCategoryRequest request) {
+        var entity = getCategoryEntity(id);
+        entity.setName(request.name());
+        entity.setCode(request.code());
+
+        return productMapper.toDto(categoryRepository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public void deleteCategory(Long id) {
+        getCategoryEntity(id);
+        categoryRepository.deleteById(id);
+    }
+
+    // brands
+
+    @Override
+    public BrandDto createBrand(CreateBrandRequest request) {
         var brand = new BrandEntity();
-        brand.setName(name);
+        brand.setName(request.name());
 
         return productMapper.toDto(brandRepository.save(brand));
     }
@@ -166,6 +192,108 @@ public class ProductServiceImpl implements ProductService {
         return brandRepository.findAll().stream()
                 .map(productMapper::toDto)
                 .toList();
+    }
+
+    @Override
+    public BrandDto getBrand(Long id) {
+        return productMapper.toDto(getBrandEntity(id));
+    }
+
+    @Override
+    @Transactional
+    public BrandDto updateBrand(Long id, UpdateBrandRequest request) {
+        var entity = getBrandEntity(id);
+        entity.setName(request.name());
+
+        return productMapper.toDto(brandRepository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public void deleteBrand(Long id) {
+        getBrandEntity(id);
+        brandRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse createProduct(CreateProductRequest request) {
+        var product = new ProductEntity();
+        product.setBrand(getBrandEntity(request.brandId()));
+        product.setCategory(getCategoryEntity(request.categoryId()));
+        product.setName(request.name());
+        product.setImageURI(request.imageURI());
+
+        productsRepository.save(product);
+        saveFactors(product, request.numericFactors(), request.booleanFactors(), request.enumFactors());
+
+        product.setRating(ratingService.calculate(product.getId()));
+        productsRepository.save(product);
+
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
+        var product = getProductEntity(id);
+        product.setName(request.name());
+        product.setImageURI(request.imageURI());
+        product.setBrand(getBrandEntity(request.brandId()));
+        product.setCategory(getCategoryEntity(request.categoryId()));
+
+        numericFactorRepository.deleteAllByProductId(id);
+        booleanFactorRepository.deleteAllByProductId(id);
+        enumFactorRepository.deleteAllByProductId(id);
+
+        saveFactors(product, request.numericFactors(), request.booleanFactors(), request.enumFactors());
+
+        product.setRating(ratingService.calculate(product.getId()));
+        product.setUpdatedAt(Instant.now());
+        productsRepository.save(product);
+
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse getProduct(Long id, Set<ProductInclude> includes) {
+        var product = productsRepository.findById(id).orElseThrow();
+
+        boolean fetchFactors = includes != null && includes.contains(ProductInclude.FACTORS);
+
+        if (fetchFactors) {
+            var payload = UserActionEvent.builder()
+                .userId(UUID.randomUUID())
+                .productId(product.getId())
+                .type("view")
+                .createdAt(Instant.now())
+                .build();
+
+            var event = OutboxEvent.builder()
+                    .aggregateType("product")
+                    .aggregateId(product.getId().toString())
+                    .type("ProductViewed")
+                    .payload(objectMapper.writeValueAsString(payload))
+                    .timestamp(Instant.now())
+                    .build();
+        
+            outboxEventRepository.save(event);
+        }
+
+        return productMapper.toDto(
+            product,
+            fetchFactors ? numericFactorRepository.findAllWithRules(id) : null,
+            fetchFactors ? booleanFactorRepository.findAllWithRules(id) : null,
+            fetchFactors ? enumFactorRepository.findAllWithRules(id) : null
+        );
+    }
+
+    @Override
+    @Transactional
+    public void deleteProduct(Long id) {
+        getProductEntity(id);
+        productsRepository.deleteById(id);
     }
 
     @Override
