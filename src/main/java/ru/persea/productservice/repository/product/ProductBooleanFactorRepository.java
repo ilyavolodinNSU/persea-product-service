@@ -16,7 +16,7 @@ public interface ProductBooleanFactorRepository extends JpaRepository<ProductBoo
     public List<ProductBooleanFactorEntity> findAllByProductId(Long productId);
 
     @Query("""
-        select new ru.persea.productservice.dto.product.response.ProductBooleanFactorResponse(
+        select new ru.persea.productservice.dto.product.product.response.ProductBooleanFactorResponse(
             pbf.id, pbf.factor.id, f.name, pbf.value, fbr.impact
         )
         from ProductBooleanFactorEntity pbf

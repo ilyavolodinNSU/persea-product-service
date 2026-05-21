@@ -29,6 +29,7 @@ import ru.persea.productservice.dto.factor.factor.response.FactorNumericRuleResp
 import ru.persea.productservice.service.FactorService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 
 @RestController
@@ -40,6 +41,7 @@ public class FactorController {
     // units
 
     @PostMapping("/units")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<UnitDto> createUnit(@Valid @RequestBody CreateUnitRequest request) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -47,24 +49,28 @@ public class FactorController {
     }
 
     @GetMapping("/units")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<UnitDto>> getUnits() {
         return ResponseEntity.ok(factorService.getUnits());
     }
 
     @GetMapping("/units/{id}")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<UnitDto> getUnit(@PathVariable Short id) {
         return ResponseEntity.ok(factorService.getUnit(id));
     }
 
     @PutMapping("/units/{id}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<UnitDto> updateUnit(
-            @PathVariable Short id,
-            @Valid @RequestBody UpdateUnitRequest request
+        @PathVariable Short id,
+        @Valid @RequestBody UpdateUnitRequest request
     ) {
         return ResponseEntity.ok(factorService.updateUnit(id, request));
     }
 
     @DeleteMapping("/units/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUnit(@PathVariable Short id) {
         factorService.deleteUnit(id);
@@ -73,8 +79,9 @@ public class FactorController {
     // factor types
 
     @PostMapping("/types")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorTypeDto> createFactorType(
-            @Valid @RequestBody CreateFactorTypeRequest request
+        @Valid @RequestBody CreateFactorTypeRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -82,16 +89,19 @@ public class FactorController {
     }
 
     @GetMapping("/types")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<FactorTypeDto>> getFactorTypes() {
         return ResponseEntity.ok(factorService.getFactorTypes());
     }
 
     @GetMapping("/types/{id}")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<FactorTypeDto> getFactorType(@PathVariable Short id) {
         return ResponseEntity.ok(factorService.getFactorType(id));
     }
 
     @PutMapping("/types/{id}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorTypeDto> updateFactorType(
             @PathVariable Short id,
             @Valid @RequestBody UpdateFactorTypeRequest request
@@ -101,6 +111,7 @@ public class FactorController {
 
     @DeleteMapping("/types/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteFactorType(@PathVariable Short id) {
         factorService.deleteFactorType(id);
     }
@@ -108,8 +119,9 @@ public class FactorController {
     // factors
 
     @PostMapping
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorDto> createFactor(
-            @Valid @RequestBody CreateFactorRequest request
+        @Valid @RequestBody CreateFactorRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -117,25 +129,29 @@ public class FactorController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<FactorDto>> getFactors() {
         return ResponseEntity.ok(factorService.getFactors());
     }
 
     @GetMapping("/{factorId}")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<FactorDto> getFactor(@PathVariable Long factorId) {
         return ResponseEntity.ok(factorService.getFactor(factorId));
     }
 
     @PutMapping("/{factorId}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorDto> updateFactor(
-            @PathVariable Long factorId,
-            @Valid @RequestBody UpdateFactorRequest request
+        @PathVariable Long factorId,
+        @Valid @RequestBody UpdateFactorRequest request
     ) {
         return ResponseEntity.ok(factorService.updateFactor(factorId, request));
     }
 
     @DeleteMapping("/{factorId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteFactor(@PathVariable Long factorId) {
         factorService.deleteFactor(factorId);
     }
@@ -143,9 +159,10 @@ public class FactorController {
     // numeric rules
 
     @PostMapping("/{factorId}/numeric-rules")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorNumericRuleResponse> createFactorNumericRule(
-            @PathVariable Long factorId,
-            @Valid @RequestBody CreateFactorNumericRuleRequest request
+        @PathVariable Long factorId,
+        @Valid @RequestBody CreateFactorNumericRuleRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -153,20 +170,25 @@ public class FactorController {
     }
 
     @GetMapping("/numeric-rules/{ruleId}")
-    public ResponseEntity<FactorNumericRuleResponse> getFactorNumericRule(@PathVariable Long ruleId) {
+    @PreAuthorize("hasRole('APP_USER')")
+    public ResponseEntity<FactorNumericRuleResponse> getFactorNumericRule(
+        @PathVariable Long ruleId
+    ) {
         return ResponseEntity.ok(factorService.getFactorNumericRule(ruleId));
     }
 
     @PutMapping("/numeric-rules/{ruleId}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorNumericRuleResponse> updateFactorNumericRule(
-            @PathVariable Long ruleId,
-            @Valid @RequestBody UpdateFactorNumericRuleRequest request
+        @PathVariable Long ruleId,
+        @Valid @RequestBody UpdateFactorNumericRuleRequest request
     ) {
         return ResponseEntity.ok(factorService.updateFactorNumericRule(ruleId, request));
     }
 
     @DeleteMapping("/numeric-rules/{ruleId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteFactorNumericRule(@PathVariable Long ruleId) {
         factorService.deleteFactorNumericRule(ruleId);
     }
@@ -174,6 +196,7 @@ public class FactorController {
     // boolean rules
 
     @PostMapping("/{factorId}/boolean-rules")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorBooleanRuleResponse> createFactorBooleanRule(
             @PathVariable Long factorId,
             @Valid @RequestBody CreateFactorBooleanRuleRequest request
@@ -184,20 +207,25 @@ public class FactorController {
     }
 
     @GetMapping("/boolean-rules/{ruleId}")
-    public ResponseEntity<FactorBooleanRuleResponse> getFactorBooleanRule(@PathVariable Long ruleId) {
+    @PreAuthorize("hasRole('APP_USER')")
+    public ResponseEntity<FactorBooleanRuleResponse> getFactorBooleanRule(
+        @PathVariable Long ruleId
+    ) {
         return ResponseEntity.ok(factorService.getFactorBooleanRule(ruleId));
     }
 
     @PutMapping("/boolean-rules/{ruleId}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorBooleanRuleResponse> updateFactorBooleanRule(
-            @PathVariable Long ruleId,
-            @Valid @RequestBody UpdateFactorBooleanRuleRequest request
+        @PathVariable Long ruleId,
+        @Valid @RequestBody UpdateFactorBooleanRuleRequest request
     ) {
         return ResponseEntity.ok(factorService.updateFactorBooleanRule(ruleId, request));
     }
 
     @DeleteMapping("/boolean-rules/{ruleId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteFactorBooleanRule(@PathVariable Long ruleId) {
         factorService.deleteFactorBooleanRule(ruleId);
     }
@@ -205,9 +233,10 @@ public class FactorController {
     // enum values
 
     @PostMapping("/{factorId}/enum-values")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorEnumValueResponse> createFactorEnumValue(
-            @PathVariable Long factorId,
-            @Valid @RequestBody CreateFactorEnumValueRequest request
+        @PathVariable Long factorId,
+        @Valid @RequestBody CreateFactorEnumValueRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -215,11 +244,15 @@ public class FactorController {
     }
 
     @GetMapping("/enum-values/{valueId}")
-    public ResponseEntity<FactorEnumValueResponse> getFactorEnumValue(@PathVariable Long valueId) {
+    @PreAuthorize("hasRole('APP_USER')")
+    public ResponseEntity<FactorEnumValueResponse> getFactorEnumValue(
+        @PathVariable Long valueId
+    ) {
         return ResponseEntity.ok(factorService.getFactorEnumValue(valueId));
     }
 
     @PutMapping("/enum-values/{valueId}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorEnumValueResponse> updateFactorEnumValue(
             @PathVariable Long valueId,
             @Valid @RequestBody UpdateFactorEnumValueRequest request
@@ -229,6 +262,7 @@ public class FactorController {
 
     @DeleteMapping("/enum-values/{valueId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteFactorEnumValue(@PathVariable Long valueId) {
         factorService.deleteFactorEnumValue(valueId);
     }
@@ -236,6 +270,7 @@ public class FactorController {
     // enum rules
 
     @PostMapping("/enum-values/{valueId}/enum-rules")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorEnumRuleResponse> createFactorEnumRule(
         @PathVariable Long valueId,
         @Valid @RequestBody CreateFactorEnumRuleRequest request
@@ -246,11 +281,15 @@ public class FactorController {
     }
 
     @GetMapping("/enum-rules/{ruleId}")
-    public ResponseEntity<FactorEnumRuleResponse> getFactorEnumRule(@PathVariable Long ruleId) {
+    @PreAuthorize("hasRole('APP_USER')")
+    public ResponseEntity<FactorEnumRuleResponse> getFactorEnumRule(
+        @PathVariable Long ruleId
+    ) {
         return ResponseEntity.ok(factorService.getFactorEnumRule(ruleId));
     }
 
     @PutMapping("/enum-rules/{ruleId}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<FactorEnumRuleResponse> updateFactorEnumRule(
             @PathVariable Long ruleId,
             @Valid @RequestBody UpdateFactorEnumRuleRequest request
@@ -260,6 +299,7 @@ public class FactorController {
 
     @DeleteMapping("/enum-rules/{ruleId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteFactorEnumRule(@PathVariable Long ruleId) {
         factorService.deleteFactorEnumRule(ruleId);
     }

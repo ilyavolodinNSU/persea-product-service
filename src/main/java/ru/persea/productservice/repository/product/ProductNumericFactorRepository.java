@@ -16,7 +16,7 @@ public interface ProductNumericFactorRepository extends JpaRepository<ProductNum
     public List<ProductNumericFactorEntity> findAllByProductId(Long productId);
 
     @Query("""
-        select new ru.persea.productservice.dto.product.response.ProductNumericFactorResponse(
+        select new ru.persea.productservice.dto.product.product.response.ProductNumericFactorResponse(
             pnf.id, pnf.factor.id, f.name, u.name, pnf.amount, fnr.minValue, fnr.maxValue
         )
         from ProductNumericFactorEntity pnf

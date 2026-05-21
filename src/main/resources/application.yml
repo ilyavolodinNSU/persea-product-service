@@ -2,7 +2,7 @@ spring:
   application:
     name: persea-product-service
   datasource:
-      url: jdbc:postgresql://localhost:5432/product_service
+      url: jdbc:postgresql://localhost:5433/product_service
       username: postgres
       password: postgres
   jpa:
@@ -10,11 +10,11 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: true
-  # security:
-  #   oauth2:
-  #     resourceserver:
-  #       jwt:
-  #         issuer-uri: http://localhost:8081/realms/persea
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/persea
   elasticsearch:
     uris: http://localhost:9200
   # kafka:

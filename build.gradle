@@ -47,8 +47,5 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 	// implementation 'org.springframework.boot:spring-boot-starter-elasticsearch'
 
-	implementation 'org.springframework.boot:spring-boot-starter-kafka'
- 	// testImplementation 'org.springframework.boot:spring-boot-starter-kafka-test'
-
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
 }

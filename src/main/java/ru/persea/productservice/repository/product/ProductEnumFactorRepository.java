@@ -16,7 +16,7 @@ public interface ProductEnumFactorRepository extends JpaRepository<ProductEnumFa
     public List<ProductEnumFactorEntity> findAllByProductId(Long productId);
 
     @Query("""
-        select new ru.persea.productservice.dto.product.response.ProductEnumFactorResponse(
+        select new ru.persea.productservice.dto.product.product.response.ProductEnumFactorResponse(
             pef.id, f.id, f.name, ev.value, fer.impact
         )
         from ProductEnumFactorEntity pef

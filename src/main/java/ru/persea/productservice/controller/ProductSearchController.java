@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 
 
@@ -22,6 +23,7 @@ public class ProductSearchController {
     private final ProductService productService;
 
     @GetMapping
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<ProductSearchDto>> searchProducts(
         @RequestParam(value = "q", required = false) String query,
         @RequestParam(value = "category_id", required = false) Integer categoryId,
@@ -43,6 +45,7 @@ public class ProductSearchController {
     }
 
     @GetMapping("/suggestions")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<String>> getSuggestions(
         @RequestParam("q") String query, 
         @RequestParam(value = "limit", defaultValue = "5", required = false) Integer limit

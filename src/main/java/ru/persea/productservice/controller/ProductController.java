@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/products")
@@ -30,6 +31,7 @@ public class ProductController {
     // categories
 
     @PostMapping("/categories")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<CategoryDto> createCategory(
             @RequestBody CreateCategoryRequest request
     ) {
@@ -39,16 +41,19 @@ public class ProductController {
     }
 
     @GetMapping("/categories")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<CategoryDto>> getCategories() {
         return ResponseEntity.ok(productService.getCategories());
     }
 
     @GetMapping("/categories/{id}")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<CategoryDto> getCategory(@PathVariable Long id) {
         return ResponseEntity.ok(productService.getCategory(id));
     }
 
     @PutMapping("/categories/{id}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<CategoryDto> updateCategory(
             @PathVariable Long id,
             @RequestBody UpdateCategoryRequest request
@@ -58,6 +63,7 @@ public class ProductController {
 
     @DeleteMapping("/categories/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteCategory(@PathVariable Long id) {
         productService.deleteCategory(id);
     }
@@ -65,6 +71,7 @@ public class ProductController {
     // brands
 
     @PostMapping("/brands")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<BrandDto> createBrand(@RequestBody CreateBrandRequest request) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -72,16 +79,19 @@ public class ProductController {
     }
 
     @GetMapping("/brands")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<List<BrandDto>> getBrands() {
         return ResponseEntity.ok(productService.getBrands());
     }
 
     @GetMapping("/brands/{id}")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<BrandDto> getBrand(@PathVariable Long id) {
         return ResponseEntity.ok(productService.getBrand(id));
     }
 
     @PutMapping("/brands/{id}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<BrandDto> updateBrand(
             @PathVariable Long id,
             @RequestBody UpdateBrandRequest request
@@ -91,6 +101,7 @@ public class ProductController {
 
     @DeleteMapping("/brands/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteBrand(@PathVariable Long id) {
         productService.deleteBrand(id);
     }
@@ -98,6 +109,7 @@ public class ProductController {
     // products
 
     @PostMapping
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<ProductResponse> createProduct(
             @RequestBody CreateProductRequest request
     ) {
@@ -107,6 +119,7 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('APP_USER')")
     public ResponseEntity<ProductResponse> getProduct(
             @PathVariable Long id,
             @RequestParam(value = "include", required = false) Set<ProductInclude> includes
@@ -115,6 +128,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable Long id,
             @RequestBody UpdateProductRequest request
@@ -124,6 +138,7 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
     }
