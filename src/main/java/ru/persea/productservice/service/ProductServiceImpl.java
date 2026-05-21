@@ -264,7 +264,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (fetchFactors) {
             var payload = UserActionEvent.builder()
-                .userId(UUID.randomUUID())
+                .userId(SecurityUtils.getKeycloakUUID())
                 .productId(product.getId())
                 .type("view")
                 .createdAt(Instant.now())
