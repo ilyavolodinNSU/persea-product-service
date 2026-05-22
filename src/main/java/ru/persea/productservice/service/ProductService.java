@@ -2,22 +2,41 @@ package ru.persea.productservice.service;
 
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.bind.annotation.RequestParam;
 
-import ru.persea.productservice.dto.CategoryDto;
-import ru.persea.productservice.dto.ProductDto;
-import ru.persea.productservice.dto.ProductInclude;
-import ru.persea.productservice.dto.ProductSearchDto;
+import ru.persea.productservice.dto.product.brand.request.CreateBrandRequest;
+import ru.persea.productservice.dto.product.brand.request.UpdateBrandRequest;
+import ru.persea.productservice.dto.product.brand.response.BrandDto;
+import ru.persea.productservice.dto.product.category.request.CreateCategoryRequest;
+import ru.persea.productservice.dto.product.category.request.UpdateCategoryRequest;
+import ru.persea.productservice.dto.product.category.response.CategoryDto;
+import ru.persea.productservice.dto.product.product.ProductInclude;
+import ru.persea.productservice.dto.product.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.product.request.CreateProductRequest;
+import ru.persea.productservice.dto.product.product.request.UpdateProductRequest;
+import ru.persea.productservice.dto.product.product.response.ProductResponse;
 
 public interface ProductService {
-    public List<CategoryDto> addCategories(List<String> names);
+    // categories
+    CategoryDto createCategory(CreateCategoryRequest request);
+    List<CategoryDto> getCategories();
+    CategoryDto getCategory(Long id);
+    CategoryDto updateCategory(Long id, UpdateCategoryRequest request);
+    void deleteCategory(Long id);
 
-    public Set<CategoryDto> getCategories();
+    // brands
+    BrandDto createBrand(CreateBrandRequest request);
+    List<BrandDto> getBrands();
+    BrandDto getBrand(Long id);
+    BrandDto updateBrand(Long id, UpdateBrandRequest request);
+    void deleteBrand(Long id);
 
-    public ProductDto getProduct(Long id, Set<ProductInclude> includes, UUID userId);
+    // products
+    ProductResponse createProduct(CreateProductRequest request);
+    ProductResponse getProduct(Long id, Set<ProductInclude> includes);
+    ProductResponse updateProduct(Long id, UpdateProductRequest request);
+    void deleteProduct(Long id);
 
     public List<ProductSearchDto> searchProducts(String query, Integer categoryId, Set<Integer> brandsIds, Integer minRating, Integer maxRating, Pageable pageable);
 

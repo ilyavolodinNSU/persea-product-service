@@ -2,7 +2,7 @@ spring:
   application:
     name: persea-product-service
   datasource:
-      url: jdbc:postgresql://localhost:5432/product_service
+      url: jdbc:postgresql://localhost:5433/product_service
       username: postgres
       password: postgres
   jpa:
@@ -24,4 +24,4 @@ spring:
   #     value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 server:
-  port: 8083
+  port: 8084

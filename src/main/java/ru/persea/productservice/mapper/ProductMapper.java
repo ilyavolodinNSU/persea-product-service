@@ -5,21 +5,31 @@ import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
-import org.springframework.beans.factory.annotation.Autowired;
+import ru.persea.productservice.dto.product.brand.response.BrandDto;
+import ru.persea.productservice.dto.product.category.response.CategoryDto;
+import ru.persea.productservice.dto.product.product.response.ProductBooleanFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductEnumFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductNumericFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductResponse;
+import ru.persea.productservice.entity.product.BrandEntity;
+import ru.persea.productservice.entity.product.CategoryEntity;
+import ru.persea.productservice.entity.product.ProductEntity;
 
-import ru.persea.productservice.dto.FactorDto;
-import ru.persea.productservice.dto.ProductDto;
-import ru.persea.productservice.entity.ProductEntity;
-import ru.persea.productservice.entity.ProductFactorEntity;
-
-@Mapper(
-    componentModel = MappingConstants.ComponentModel.SPRING,
-    uses = ProductFactorMapper.class
-)
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface ProductMapper {
+    CategoryDto toDto(CategoryEntity entity);
 
-    @Mapping(target = "factors", source = "factorEntities")
-    ProductDto toDto(ProductEntity productEntity, List<ProductFactorEntity> factorEntities);
+    BrandDto toDto(BrandEntity entity);
 
-    ProductDto toDto(ProductEntity productEntity);
+    ProductResponse toDto(ProductEntity entity);
+
+    @Mapping(target = "numericFactors", source = "numFactors")
+    @Mapping(target = "booleanFactors", source = "boolFactors")
+    @Mapping(target = "enumFactors", source = "enumFactors")
+    ProductResponse toDto(
+        ProductEntity entity, 
+        List<ProductNumericFactorResponse> numFactors, 
+        List<ProductBooleanFactorResponse> boolFactors, 
+        List<ProductEnumFactorResponse> enumFactors
+    );
 }

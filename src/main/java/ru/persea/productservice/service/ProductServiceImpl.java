@@ -1,93 +1,299 @@
 package ru.persea.productservice.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.suggest.response.Suggest;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
-import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
-import co.elastic.clients.elasticsearch.core.search.SuggestionBuilders;
-import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
-import ru.persea.productservice.dto.CategoryDto;
-import ru.persea.productservice.dto.FactorDto;
-import ru.persea.productservice.dto.ProductDto;
-import ru.persea.productservice.dto.ProductInclude;
-import ru.persea.productservice.dto.ProductSearchDto;
-import ru.persea.productservice.dto.UserActionEvent;
-import ru.persea.productservice.entity.ProductDocument;
-import ru.persea.productservice.entity.ProductEntity;
-import ru.persea.productservice.entity.ProductFactorEntity;
-import ru.persea.productservice.mapper.CategoryMapper;
-import ru.persea.productservice.mapper.ProductFactorMapper;
+import ru.persea.productservice.dto.product.brand.request.CreateBrandRequest;
+import ru.persea.productservice.dto.product.brand.request.UpdateBrandRequest;
+import ru.persea.productservice.dto.product.brand.response.BrandDto;
+import ru.persea.productservice.dto.product.category.request.CreateCategoryRequest;
+import ru.persea.productservice.dto.product.category.request.UpdateCategoryRequest;
+import ru.persea.productservice.dto.product.category.response.CategoryDto;
+import ru.persea.productservice.dto.product.product.ProductInclude;
+import ru.persea.productservice.dto.product.product.ProductSearchDto;
+import ru.persea.productservice.dto.product.product.request.*;
+import ru.persea.productservice.dto.product.product.response.ProductResponse;
+import ru.persea.productservice.entity.outbox.OutboxEvent;
+import ru.persea.productservice.entity.product.BrandEntity;
+import ru.persea.productservice.entity.product.CategoryEntity;
+import ru.persea.productservice.entity.product.ProductBooleanFactorEntity;
+import ru.persea.productservice.entity.product.ProductDocument;
+import ru.persea.productservice.entity.product.ProductEntity;
+import ru.persea.productservice.entity.product.ProductEnumFactorEntity;
+import ru.persea.productservice.entity.product.ProductNumericFactorEntity;
 import ru.persea.productservice.mapper.ProductMapper;
 import ru.persea.productservice.mapper.ProductSearchMapper;
-import ru.persea.productservice.repository.CategoriesRepository;
-import ru.persea.productservice.repository.ProductFactorsRepository;
-import ru.persea.productservice.repository.ProductsRepository;
+import ru.persea.productservice.repository.factor.FactorRepository;
+import ru.persea.productservice.repository.product.OutboxEventRepository;
+import ru.persea.productservice.repository.product.ProductBooleanFactorRepository;
+import ru.persea.productservice.repository.product.ProductEnumFactorRepository;
+import ru.persea.productservice.repository.product.BrandRepository;
+import ru.persea.productservice.repository.product.CategoryRepository;
+import ru.persea.productservice.repository.factor.FactorEnumValueRepository;
+import ru.persea.productservice.repository.product.ProductNumericFactorRepository;
+import ru.persea.productservice.repository.product.ProductsRepository;
 import tools.jackson.databind.ObjectMapper;
-
-import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
+    private final FactorRepository factorRepository;
     private final ProductsRepository productsRepository;
-    private final ProductFactorsRepository productFactorsRepository;
-    private final CategoriesRepository categoriesRepository;
+    private final CategoryRepository categoryRepository;
+    private final BrandRepository brandRepository;
+    private final ProductNumericFactorRepository numericFactorRepository;
+    private final ProductBooleanFactorRepository booleanFactorRepository;
+    private final ProductEnumFactorRepository enumFactorRepository;
+    private final FactorEnumValueRepository factorEnumValueRepository;
+    private final OutboxEventRepository outboxEventRepository;
     
     private final ProductMapper productMapper;
-    private final CategoryMapper categoryMapper;
     private final ProductSearchMapper productSearchMapper;
 
     private final ElasticsearchOperations esOperations;
     private final ElasticsearchClient esClient;
 
-    private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
+    private final RatingService ratingService;
+
+    private final ObjectMapper objectMapper;
+
+    //private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
+
+    private CategoryEntity getCategoryEntity(Long id) {
+        return categoryRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Категория не найдена: " + id));
+    }
+
+    private BrandEntity getBrandEntity(Long id) {
+        return brandRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Бренд не найден: " + id));
+    }
+
+    private ProductEntity getProductEntity(Long id) {
+        return productsRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Продукт не найден: " + id));
+    }
+
+    private void saveFactors(
+            ProductEntity product,
+            List<ProductNumericFactorRequest> numericFactors,
+            List<ProductBooleanFactorRequest> booleanFactors,
+            List<ProductEnumFactorRequest> enumFactors
+    ) {
+        numericFactorRepository.saveAll(
+            numericFactors.stream()
+                .map(f -> {
+                    var factorNum = new ProductNumericFactorEntity();
+                    factorNum.setProduct(product);
+                    factorNum.setFactor(factorRepository.getReferenceById(f.factorId()));
+                    factorNum.setAmount(f.amount());
+                    return factorNum;
+                })
+                .toList()
+        );
+
+        booleanFactorRepository.saveAll(
+            booleanFactors.stream()
+                .map(f -> {
+                    var factorBool = new ProductBooleanFactorEntity();
+                    factorBool.setProduct(product);
+                    factorBool.setFactor(factorRepository.getReferenceById(f.factorId()));
+                    factorBool.setValue(f.value());
+                    return factorBool;
+                })
+                .toList()
+        );
+
+        enumFactorRepository.saveAll(
+            enumFactors.stream()
+                .map(f -> {
+                    var factorEnum = new ProductEnumFactorEntity();
+                    factorEnum.setProduct(product);
+                    factorEnum.setFactor(factorRepository.getReferenceById(f.factorId()));
+                    factorEnum.setEnumValue(factorEnumValueRepository.getReferenceById(f.enumValueId()));
+                    return factorEnum;
+                })
+                .toList()
+        );
+    }
+
+    // categories
 
     @Override
-    public ProductDto getProduct(Long id, Set<ProductInclude> includes, UUID userId) {
-        ProductEntity entity = productsRepository.findById(id).orElseThrow();
-        List<ProductFactorEntity> factors = null;
+    @Transactional
+    public CategoryDto createCategory(CreateCategoryRequest request) {
+        var entity = new CategoryEntity();
+        entity.setName(request.name());
+        entity.setCode(request.code());
 
-        if (includes != null && includes.contains(ProductInclude.FACTORS))
-            factors = productFactorsRepository.findByProductId(id);
-
-        kafkaTemplate.send("user-actions", new UserActionEvent(userId, "view"));
-
-        return productMapper.toDto(entity, factors);
+        return productMapper.toDto(categoryRepository.save(entity));
     }
 
     @Override
-    public Set<CategoryDto> getCategories() {
-        return categoriesRepository.findAll().stream()
-                .map(categoryMapper::toDto)
-                .collect(Collectors.toSet());
+    public List<CategoryDto> getCategories() {
+        return categoryRepository.findAll().stream()
+                .map(productMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    public CategoryDto getCategory(Long id) {
+        return productMapper.toDto(getCategoryEntity(id));
+    }
+
+    @Override
+    @Transactional
+    public CategoryDto updateCategory(Long id, UpdateCategoryRequest request) {
+        var entity = getCategoryEntity(id);
+        entity.setName(request.name());
+        entity.setCode(request.code());
+
+        return productMapper.toDto(categoryRepository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public void deleteCategory(Long id) {
+        getCategoryEntity(id);
+        categoryRepository.deleteById(id);
+    }
+
+    // brands
+
+    @Override
+    public BrandDto createBrand(CreateBrandRequest request) {
+        var brand = new BrandEntity();
+        brand.setName(request.name());
+
+        return productMapper.toDto(brandRepository.save(brand));
+    }
+
+    @Override
+    public List<BrandDto> getBrands() {
+        return brandRepository.findAll().stream()
+                .map(productMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    public BrandDto getBrand(Long id) {
+        return productMapper.toDto(getBrandEntity(id));
+    }
+
+    @Override
+    @Transactional
+    public BrandDto updateBrand(Long id, UpdateBrandRequest request) {
+        var entity = getBrandEntity(id);
+        entity.setName(request.name());
+
+        return productMapper.toDto(brandRepository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public void deleteBrand(Long id) {
+        getBrandEntity(id);
+        brandRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse createProduct(CreateProductRequest request) {
+        var product = new ProductEntity();
+        product.setBrand(getBrandEntity(request.brandId()));
+        product.setCategory(getCategoryEntity(request.categoryId()));
+        product.setName(request.name());
+        product.setImageURI(request.imageURI());
+
+        productsRepository.save(product);
+        saveFactors(product, request.numericFactors(), request.booleanFactors(), request.enumFactors());
+
+        product.setRating(ratingService.calculate(product.getId()));
+        productsRepository.save(product);
+
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
+        var product = getProductEntity(id);
+        product.setName(request.name());
+        product.setImageURI(request.imageURI());
+        product.setBrand(getBrandEntity(request.brandId()));
+        product.setCategory(getCategoryEntity(request.categoryId()));
+
+        numericFactorRepository.deleteAllByProductId(id);
+        booleanFactorRepository.deleteAllByProductId(id);
+        enumFactorRepository.deleteAllByProductId(id);
+
+        saveFactors(product, request.numericFactors(), request.booleanFactors(), request.enumFactors());
+
+        product.setRating(ratingService.calculate(product.getId()));
+        product.setUpdatedAt(Instant.now());
+        productsRepository.save(product);
+
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse getProduct(Long id, Set<ProductInclude> includes) {
+        var product = productsRepository.findById(id).orElseThrow();
+
+        boolean fetchFactors = includes != null && includes.contains(ProductInclude.FACTORS);
+
+        if (fetchFactors) {
+            var payload = UserActionEvent.builder()
+                .userId(SecurityUtils.getKeycloakUUID())
+                .productId(product.getId())
+                .type("view")
+                .createdAt(Instant.now())
+                .build();
+
+            var event = OutboxEvent.builder()
+                    .aggregateType("product")
+                    .aggregateId(product.getId().toString())
+                    .type("ProductViewed")
+                    .payload(objectMapper.writeValueAsString(payload))
+                    .timestamp(Instant.now())
+                    .build();
+        
+            outboxEventRepository.save(event);
+        }
+
+        return productMapper.toDto(
+            product,
+            fetchFactors ? numericFactorRepository.findAllWithRules(id) : null,
+            fetchFactors ? booleanFactorRepository.findAllWithRules(id) : null,
+            fetchFactors ? enumFactorRepository.findAllWithRules(id) : null
+        );
+    }
+
+    @Override
+    @Transactional
+    public void deleteProduct(Long id) {
+        getProductEntity(id);
+        productsRepository.deleteById(id);
     }
 
     @Override
@@ -99,8 +305,6 @@ public class ProductServiceImpl implements ProductService {
         Integer maxRating, 
         Pageable pageable
     ) {
-        System.out.println("Sort: " + pageable.getSort()); 
-
         BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
 
         if (query != null && !query.isBlank()) {
