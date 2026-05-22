@@ -12,7 +12,7 @@
     "table.include.list": "public.outbox",
     "transforms": "outbox",
     "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
-    "transforms.outbox.route.topic.replacement": "data.cdc.${routedByValue}",
+    "transforms.outbox.route.topic.replacement": "data.cdc.${routedByValue}.outbox",
     "heartbeat.interval.ms": "5000",
     "slot.name": "product_service_slot_outbox"
   }
