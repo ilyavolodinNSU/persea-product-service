@@ -1,5 +1,5 @@
 {
-  "name": "product-connector",
+  "name": "user-action-connector",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "plugin.name": "pgoutput",
@@ -7,10 +7,10 @@
     "database.port": "5432",
     "database.user": "postgres",
     "database.password": "postgres",
-    "database.dbname" : "product_service",
-    "table.include.list": "public.categories,public.brands,public.products",
+    "database.dbname" : "user_service",
+    "table.include.list": "public.user_actions,public.user_action_types",
     "topic.prefix": "data.cdc",
     "heartbeat.interval.ms": "5000",
-    "slot.name": "product_service_slot_cdc"
+    "slot.name": "user_service_slot_cdc"
   }
 }
