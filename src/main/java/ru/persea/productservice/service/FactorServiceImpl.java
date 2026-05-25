@@ -318,7 +318,7 @@ public class FactorServiceImpl implements FactorService {
 
     @Override
     public FactorEnumRuleResponse updateFactorEnumRule(Long id, UpdateFactorEnumRuleRequest request) {
-        var enumRule = new FactorEnumRuleEntity();
+        var enumRule = getEnumRuleEntity(id);
         enumRule.setCategory(categorysRepository.getReferenceById(request.categoryId()));
         enumRule.setEnumValue(factorEnumValueRepository.getReferenceById(request.valueId()));
         enumRule.setImpact(request.impact());
