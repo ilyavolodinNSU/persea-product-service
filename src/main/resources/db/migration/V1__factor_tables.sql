@@ -2,7 +2,7 @@
 create table if not exists categories (
     id bigserial primary key,
     name varchar(255) not null unique,
-    code varchar(255) not null unique -- для бизнес логики
+    code varchar(255) not null -- для бизнес логики
 );
 
 -- только для числовых типов
@@ -16,6 +16,10 @@ create table if not exists factor_types (
     id smallserial primary key,
     name varchar(50) not null unique
 );
+
+insert into factor_types (name)
+values ('numeric'), ('boolean'), ('enum');
+
 -- список всех существующих абстрактных факторов в системе
 -- например: сахар, нитраты, тип упаковки
 create table if not exists factors (

@@ -14,6 +14,8 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
@@ -22,6 +24,7 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ru.persea.productservice.dto.product.brand.request.CreateBrandRequest;
 import ru.persea.productservice.dto.product.brand.request.UpdateBrandRequest;
 import ru.persea.productservice.dto.product.brand.response.BrandDto;
@@ -51,8 +54,10 @@ import ru.persea.productservice.repository.product.CategoryRepository;
 import ru.persea.productservice.repository.factor.FactorEnumValueRepository;
 import ru.persea.productservice.repository.product.ProductNumericFactorRepository;
 import ru.persea.productservice.repository.product.ProductsRepository;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
@@ -75,8 +80,6 @@ public class ProductServiceImpl implements ProductService {
     private final RatingService ratingService;
 
     private final ObjectMapper objectMapper;
-
-    //private final KafkaTemplate<String, UserActionEvent> kafkaTemplate;
 
     private CategoryEntity getCategoryEntity(Long id) {
         return categoryRepository.findById(id)
@@ -225,12 +228,17 @@ public class ProductServiceImpl implements ProductService {
         product.setImageURI(request.imageURI());
 
         productsRepository.save(product);
+
         saveFactors(product, request.numericFactors(), request.booleanFactors(), request.enumFactors());
 
-        product.setRating(ratingService.calculate(product.getId()));
-        productsRepository.save(product);
+        productsRepository.flush();
+        numericFactorRepository.flush();
+        booleanFactorRepository.flush();
+        enumFactorRepository.flush();
 
-        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
+        product.setRating(ratingService.calculate(product.getId()));
+
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS), false);
     }
 
     @Override
@@ -248,37 +256,30 @@ public class ProductServiceImpl implements ProductService {
 
         saveFactors(product, request.numericFactors(), request.booleanFactors(), request.enumFactors());
 
+        numericFactorRepository.flush();
+        booleanFactorRepository.flush();
+        enumFactorRepository.flush();
+
         product.setRating(ratingService.calculate(product.getId()));
         product.setUpdatedAt(Instant.now());
-        productsRepository.save(product);
 
-        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS));
+        return getProduct(product.getId(), Set.of(ProductInclude.FACTORS), false);
     }
 
     @Override
     @Transactional
     public ProductResponse getProduct(Long id, Set<ProductInclude> includes) {
-        var product = productsRepository.findById(id).orElseThrow();
+        return getProduct(id, includes, true);
+    }
+
+    private ProductResponse getProduct(Long id, Set<ProductInclude> includes, boolean saveOutbox) {
+        var product = productsRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Продукт не найден: " + id));
 
         boolean fetchFactors = includes != null && includes.contains(ProductInclude.FACTORS);
 
-        if (fetchFactors) {
-            var payload = UserActionEvent.builder()
-                .userId(SecurityUtils.getKeycloakUUID())
-                .productId(product.getId())
-                .type("view")
-                .createdAt(Instant.now())
-                .build();
-
-            var event = OutboxEvent.builder()
-                    .aggregateType("product")
-                    .aggregateId(product.getId().toString())
-                    .type("ProductViewed")
-                    .payload(objectMapper.writeValueAsString(payload))
-                    .timestamp(Instant.now())
-                    .build();
-        
-            outboxEventRepository.save(event);
+        if (fetchFactors && saveOutbox) {
+            saveViewOutboxEvent(product.getId());
         }
 
         return productMapper.toDto(
@@ -287,6 +288,34 @@ public class ProductServiceImpl implements ProductService {
             fetchFactors ? booleanFactorRepository.findAllWithRules(id) : null,
             fetchFactors ? enumFactorRepository.findAllWithRules(id) : null
         );
+    }
+
+    private void saveViewOutboxEvent(Long productId) {
+        UUID userId = SecurityUtils.getKeycloakUUID();
+        if (userId == null) return;
+
+        try {
+            String payloadJson = objectMapper.writeValueAsString(
+                UserActionEvent.builder()
+                    .userId(userId)
+                    .productId(productId)
+                    .type("view")
+                    .createdAt(Instant.now())
+                    .build()
+            );
+
+            outboxEventRepository.save(
+                OutboxEvent.builder()
+                    .aggregateType("product")
+                    .aggregateId(productId.toString())
+                    .type("ProductViewed")
+                    .payload(payloadJson)
+                    .timestamp(Instant.now())
+                    .build()
+            );
+        } catch (JacksonException e) {
+            log.error("Failed to serialize outbox event for product {}", productId, e);
+        }
     }
 
     @Override
@@ -359,7 +388,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<String> getSuggestions(String prefix, int limit) {
-        if (prefix==null || prefix.isBlank() || limit > 5) return new ArrayList<>();
+        int effectiveLimit = Math.min(limit, 5);
 
         SearchRequest searchRequest = SearchRequest.of(s -> s
             .index("products")
@@ -368,7 +397,7 @@ public class ProductServiceImpl implements ProductService {
                     .prefix(prefix)
                     .completion(c -> c
                         .field("name_suggest")
-                        .size(limit)
+                        .size(effectiveLimit)
                         .skipDuplicates(true)
                         .fuzzy(f -> f
                             .fuzziness("AUTO")
