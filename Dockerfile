@@ -1,14 +1,43 @@
-FROM eclipse-temurin:21-jre-alpine
+# --- Этап 1: сборка ---
+FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
-RUN addgroup -S spring && adduser -S spring -G spring
+
+# Копируем gradle wrapper и build-файлы отдельно для кеширования зависимостей
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
+
+# Прогреваем кеш зависимостей
+RUN ./gradlew dependencies --no-daemon || true
+
+# Копируем исходники и собираем приложение
+COPY src src
+RUN ./gradlew bootJar --no-daemon -x test
+
+# --- Этап 2: runtime ---
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+# Создаём non-root пользователя (Debian-based синтаксис)
+RUN groupadd -r spring && useradd -r -g spring spring
+
 USER spring:spring
-COPY --chown=spring:spring build/libs/persea-product-service-0.0.1-SNAPSHOT.jar app.jar
+
+# Копируем собранный jar из builder stage
+COPY --from=builder --chown=spring:spring \
+  /app/build/libs/persea-product-service-0.0.1-SNAPSHOT.jar app.jar
+
+# Healthcheck через Spring Actuator
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8084/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider \
+  http://localhost:8084/actuator/health || exit 1
+
+# Порт сервиса
 EXPOSE 8084
+
+# Запуск приложения
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \
   "-Djava.security.egd=file:/dev/./urandom", \
-  "-jar", "app.jar", \
-  "--spring.profiles.active=docker"]
+  "-jar", "app.jar"]
