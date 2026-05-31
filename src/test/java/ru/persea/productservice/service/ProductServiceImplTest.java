@@ -315,6 +315,33 @@ class ProductServiceImplTest {
         verify(esOperations).search(any(NativeQuery.class), eq(ProductDocument.class));
     }
 
+    @Test
+    void searchProducts_whenElasticFails_shouldFallbackToDatabase() {
+        Pageable pageable = Pageable.unpaged();
+        ProductEntity product = new ProductEntity();
+        product.setId(1L);
+        product.setName("Вода");
+        product.setRating(82);
+        product.setImageURI("img");
+
+        when(esOperations.search(any(NativeQuery.class), eq(ProductDocument.class)))
+                .thenThrow(new RuntimeException("index is not ready"));
+        when(productsRepository.searchProductsFallback(
+                eq("%вода%"),
+                eq(true),
+                eq(1L),
+                eq(Set.of(2L)),
+                eq(false),
+                eq(70),
+                isNull(),
+                eq(pageable)
+        )).thenReturn(List.of(product));
+
+        List<ProductSearchDto> result = productService.searchProducts(" вода ", 1, Set.of(2), 70, null, pageable);
+
+        assertThat(result).containsExactly(new ProductSearchDto(1L, "Вода", 82, "img"));
+    }
+
     // ================== Suggestions tests ==================
     @Test
     void getSuggestions_shouldReturnSuggestionsFromElastic() throws Exception {

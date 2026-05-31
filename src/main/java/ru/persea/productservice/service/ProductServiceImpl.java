@@ -318,6 +318,48 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
+    private ProductSearchDto toSearchDto(ProductEntity product) {
+        return new ProductSearchDto(
+            product.getId(),
+            product.getName(),
+            product.getRating(),
+            product.getImageURI()
+        );
+    }
+
+    private List<ProductSearchDto> searchProductsInDatabase(
+        String query,
+        Integer categoryId,
+        Set<Integer> brandIds,
+        Integer minRating,
+        Integer maxRating,
+        Pageable pageable
+    ) {
+        String normalizedQuery = query == null || query.isBlank()
+            ? null
+            : query.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean queryEnabled = normalizedQuery != null;
+        Long normalizedCategoryId = categoryId == null ? null : categoryId.longValue();
+        Set<Long> normalizedBrandIds = brandIds == null
+            ? Set.of()
+            : brandIds.stream().map(Integer::longValue).collect(java.util.stream.Collectors.toSet());
+        boolean brandIdsEmpty = normalizedBrandIds.isEmpty();
+
+        return productsRepository.searchProductsFallback(
+                queryEnabled ? "%" + normalizedQuery + "%" : "%",
+                queryEnabled,
+                normalizedCategoryId,
+                brandIdsEmpty ? Set.of(-1L) : normalizedBrandIds,
+                brandIdsEmpty,
+                minRating,
+                maxRating,
+                pageable
+            )
+            .stream()
+            .map(this::toSearchDto)
+            .toList();
+    }
+
     @Override
     @Transactional
     public void deleteProduct(Long id) {
@@ -380,10 +422,15 @@ public class ProductServiceImpl implements ProductService {
             .withPageable(pageable)
             .build();
 
-        return esOperations.search(searchQuery, ProductDocument.class).stream()
-                .map(SearchHit::getContent)
-                .map(productSearchMapper::toDto)
-                .toList();
+        try {
+            return esOperations.search(searchQuery, ProductDocument.class).stream()
+                    .map(SearchHit::getContent)
+                    .map(productSearchMapper::toDto)
+                    .toList();
+        } catch (RuntimeException e) {
+            log.warn("Elasticsearch product search failed ({}), falling back to database", e.getMessage());
+            return searchProductsInDatabase(query, categoryId, brandIds, minRating, maxRating, pageable);
+        }
     }
 
     @Override

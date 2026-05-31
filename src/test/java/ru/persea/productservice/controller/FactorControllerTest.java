@@ -36,7 +36,6 @@ class FactorControllerTest {
     @InjectMocks
     private FactorController controller;
 
-    // ================== Unit tests ==================
     @Test
     void createUnit_shouldReturnCreated() {
         CreateUnitRequest request = new CreateUnitRequest("метр");
