@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import ru.persea.productservice.dto.product.product.ProductSearchDto;
 import ru.persea.productservice.service.ProductService;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +37,7 @@ class ProductSearchControllerTest {
     void searchProducts_shouldReturnOkAndCallService() {
         // given
         String query = "тест";
+        String encodedQuery = encode(query);
         Integer categoryId = 1;
         Set<Integer> brandIds = Set.of(10, 20);
         Integer minRating = 3;
@@ -49,7 +52,7 @@ class ProductSearchControllerTest {
 
         // when
         ResponseEntity<List<ProductSearchDto>> response = controller.searchProducts(
-                query, categoryId, brandIds, minRating, maxRating, pageable
+                encodedQuery, null, null, null, null, categoryId, brandIds, minRating, maxRating, pageable
         );
 
         // then
@@ -67,7 +70,7 @@ class ProductSearchControllerTest {
 
         // when
         ResponseEntity<List<ProductSearchDto>> response = controller.searchProducts(
-                null, null, null, null, null, pageable
+                null, null, null, null, null, null, null, null, null, pageable
         );
 
         // then
@@ -83,7 +86,7 @@ class ProductSearchControllerTest {
                 .thenReturn(expected);
 
         ResponseEntity<List<ProductSearchDto>> response = controller.searchProducts(
-                "q", 1, emptyBrands, null, null, pageable
+                encode("q"), null, null, null, null, 1, emptyBrands, null, null, pageable
         );
 
         assertThat(response.getBody()).isEmpty();
@@ -93,11 +96,12 @@ class ProductSearchControllerTest {
     @Test
     void getSuggestions_shouldReturnOkAndCallService() {
         String query = "тест";
+        String encodedQuery = encode(query);
         int limit = 10;
         List<String> expected = List.of("тест1", "тест2");
         when(productService.getSuggestions(query, limit)).thenReturn(expected);
 
-        ResponseEntity<List<String>> response = controller.getSuggestions(query, limit);
+        ResponseEntity<List<String>> response = controller.getSuggestions(encodedQuery, null, null, null, null, limit);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).containsExactlyElementsOf(expected);
@@ -108,13 +112,34 @@ class ProductSearchControllerTest {
     void getSuggestions_withDefaultLimit_shouldCallServiceWithProvidedLimit() {
         // limit передается явно, даже если defaultValue в аннотации, контроллер получает уже разрешённое значение
         String query = "тест";
+        String encodedQuery = encode(query);
         int limit = 5; // допустим, клиент не передал, Spring подставит 5
         List<String> expected = List.of("тест");
         when(productService.getSuggestions(query, limit)).thenReturn(expected);
 
-        ResponseEntity<List<String>> response = controller.getSuggestions(query, limit);
+        ResponseEntity<List<String>> response = controller.getSuggestions(encodedQuery, null, null, null, null, limit);
 
         assertThat(response.getBody()).containsExactly("тест");
         verify(productService).getSuggestions(query, limit);
+    }
+
+    @Test
+    void searchProducts_withRawQuery_shouldPassPlainQueryToService() {
+        List<ProductSearchDto> expected = Collections.emptyList();
+        when(productService.searchProducts("plain", null, null, null, null, pageable))
+                .thenReturn(expected);
+
+        ResponseEntity<List<ProductSearchDto>> response = controller.searchProducts(
+                null, "plain", null, null, null, null, null, null, null, pageable
+        );
+
+        assertThat(response.getBody()).isEmpty();
+        verify(productService).searchProducts("plain", null, null, null, null, pageable);
+    }
+
+    private String encode(String value) {
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
 }

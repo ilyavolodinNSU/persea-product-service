@@ -45,6 +45,9 @@ public class ProductEntity {
     @Column(name = "image_uri")
     private String imageURI;
 
+    @Column(name = "barcode", unique = true)
+    private String barcode;
+
     @Column(name = "updated_at", insertable = false, updatable = false)
     private Instant updatedAt;
 }

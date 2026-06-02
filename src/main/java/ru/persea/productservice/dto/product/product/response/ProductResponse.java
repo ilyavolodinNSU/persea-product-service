@@ -12,6 +12,7 @@ public record ProductResponse(
     CategoryDto category,
     Integer rating,
     String imageURI,
+    String barcode,
     List<ProductNumericFactorResponse> numericFactors,
     List<ProductBooleanFactorResponse> booleanFactors,
     List<ProductEnumFactorResponse> enumFactors

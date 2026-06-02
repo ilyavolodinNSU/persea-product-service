@@ -35,6 +35,7 @@ public interface ProductService {
     // products
     ProductResponse createProduct(CreateProductRequest request);
     ProductResponse getProduct(Long id, Set<ProductInclude> includes);
+    ProductResponse getProductByBarcode(String barcode, Set<ProductInclude> includes);
     ProductResponse updateProduct(Long id, UpdateProductRequest request);
     void deleteProduct(Long id);
 

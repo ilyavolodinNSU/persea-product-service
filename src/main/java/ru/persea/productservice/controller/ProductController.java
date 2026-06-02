@@ -127,6 +127,15 @@ public class ProductController {
         return ResponseEntity.ok(productService.getProduct(id, includes));
     }
 
+    @GetMapping("/barcode/{barcode}")
+    @PreAuthorize("hasRole('APP_USER')")
+    public ResponseEntity<ProductResponse> getProductByBarcode(
+            @PathVariable String barcode,
+            @RequestParam(value = "include", required = false) Set<ProductInclude> includes
+    ) {
+        return ResponseEntity.ok(productService.getProductByBarcode(barcode, includes));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('MODERATOR')")
     public ResponseEntity<ProductResponse> updateProduct(

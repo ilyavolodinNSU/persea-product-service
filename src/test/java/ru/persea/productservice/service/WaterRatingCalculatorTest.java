@@ -1,10 +1,13 @@
 package ru.persea.productservice.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import ru.persea.productservice.dto.product.product.response.ProductBooleanFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductEnumFactorResponse;
 import ru.persea.productservice.dto.product.product.response.ProductNumericFactorResponse;
 import ru.persea.productservice.repository.product.ProductBooleanFactorRepository;
 import ru.persea.productservice.repository.product.ProductEnumFactorRepository;
@@ -28,6 +31,12 @@ class WaterRatingCalculatorTest {
 
     @InjectMocks
     private WaterRatingCalculator calculator;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(booleanFactorRepository.findAllWithRules(anyLong())).thenReturn(Collections.emptyList());
+        lenient().when(enumFactorRepository.findAllWithRules(anyLong())).thenReturn(Collections.emptyList());
+    }
 
     @Test
     void support_shouldReturnTrueForWaterCategory() {
@@ -130,5 +139,34 @@ class WaterRatingCalculatorTest {
         // final = 0.7*0 + 0.3*100 = 30
         int score = calculator.calculate(7L);
         assertThat(score).isEqualTo(30);
+    }
+
+    @Test
+    void calculate_shouldApplyBooleanAndEnumImpacts() {
+        when(numericFactorRepository.findAllWithRules(8L)).thenReturn(Collections.emptyList());
+        when(booleanFactorRepository.findAllWithRules(8L)).thenReturn(List.of(
+                new ProductBooleanFactorResponse(1L, 107L, "Стороннее тестирование", true, 7),
+                new ProductBooleanFactorResponse(2L, 100L, "Наличие лабораторного отчёта", false, -45),
+                new ProductBooleanFactorResponse(3L, 110L, "Крышка выделяет вещества", true, -7)
+        ));
+        when(enumFactorRepository.findAllWithRules(8L)).thenReturn(List.of(
+                new ProductEnumFactorResponse(1L, 121L, "Тип упаковки", "ПЭТ", -20)
+        ));
+
+        int score = calculator.calculate(8L);
+
+        assertThat(score).isEqualTo(35);
+    }
+
+    @Test
+    void calculate_shouldClampScoreToHundred() {
+        when(numericFactorRepository.findAllWithRules(9L)).thenReturn(Collections.emptyList());
+        when(booleanFactorRepository.findAllWithRules(9L)).thenReturn(List.of(
+                new ProductBooleanFactorResponse(1L, 107L, "Стороннее тестирование", true, 7)
+        ));
+
+        int score = calculator.calculate(9L);
+
+        assertThat(score).isEqualTo(100);
     }
 }

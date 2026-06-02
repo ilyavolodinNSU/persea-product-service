@@ -1,10 +1,13 @@
 package ru.persea.productservice.service;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import ru.persea.productservice.dto.product.product.response.ProductBooleanFactorResponse;
+import ru.persea.productservice.dto.product.product.response.ProductEnumFactorResponse;
 import ru.persea.productservice.dto.product.product.response.ProductNumericFactorResponse;
 import ru.persea.productservice.repository.product.ProductBooleanFactorRepository;
 import ru.persea.productservice.repository.product.ProductEnumFactorRepository;
@@ -37,9 +40,10 @@ public class WaterRatingCalculator implements RatingCalculator {
         double mineralScore = calculateDuaWqi(mineralFactors);
 
         // 70% безопасность, 30% физиологическая полноценность
-        double finalScore = 0.7 * safetyScore + 0.3 * mineralScore;
+        double numericScore = 0.7 * safetyScore + 0.3 * mineralScore;
+        int metadataImpact = calculateBooleanImpact(productId) + calculateEnumImpact(productId);
 
-        return (int) Math.round(finalScore);
+        return clamp((int) Math.round(numericScore + metadataImpact));
     }
 
     private double calculateDuaWqi(List<ProductNumericFactorResponse> factors) {
@@ -72,5 +76,55 @@ public class WaterRatingCalculator implements RatingCalculator {
         }
 
         return 100.0 - penalty;
+    }
+
+    private int calculateBooleanImpact(Long productId) {
+        return booleanFactorRepository.findAllWithRules(productId).stream()
+            .mapToInt(this::resolveBooleanImpact)
+            .sum();
+    }
+
+    private int resolveBooleanImpact(ProductBooleanFactorResponse factor) {
+        if (factor.value() == null || factor.impact() == null || factor.impact() == 0) {
+            return 0;
+        }
+
+        boolean value = Boolean.TRUE.equals(factor.value());
+        int impact = factor.impact();
+
+        if (impact > 0) {
+            return value ? impact : 0;
+        }
+
+        // In the current dataset a negative "Наличие ..." impact means an absence penalty,
+        // while a negative harmful-condition factor means a penalty when the value is true.
+        if (isAbsencePenalty(factor.factorName())) {
+            return value ? 0 : impact;
+        }
+
+        return value ? impact : 0;
+    }
+
+    private boolean isAbsencePenalty(String factorName) {
+        if (factorName == null) return false;
+
+        String normalizedName = factorName.toLowerCase(Locale.ROOT);
+        return normalizedName.startsWith("наличие")
+            || normalizedName.contains("отчёт")
+            || normalizedName.contains("отчет")
+            || normalizedName.contains("деклараци")
+            || normalizedName.contains("сертификат");
+    }
+
+    private int calculateEnumImpact(Long productId) {
+        return enumFactorRepository.findAllWithRules(productId).stream()
+            .map(ProductEnumFactorResponse::impact)
+            .filter(impact -> impact != null)
+            .mapToInt(Integer::intValue)
+            .sum();
+    }
+
+    private int clamp(int score) {
+        return Math.max(0, Math.min(100, score));
     }
 }

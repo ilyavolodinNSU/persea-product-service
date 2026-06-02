@@ -9,10 +9,13 @@ import org.springframework.stereotype.Repository;
 import ru.persea.productservice.entity.product.ProductEntity;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Repository
 public interface ProductsRepository extends JpaRepository<ProductEntity, Long> {
+    Optional<ProductEntity> findByBarcode(String barcode);
+
     @Query("""
         select p
         from ProductEntity p
@@ -31,6 +34,17 @@ public interface ProductsRepository extends JpaRepository<ProductEntity, Long> {
         @Param("brandIdsEmpty") boolean brandIdsEmpty,
         @Param("minRating") Integer minRating,
         @Param("maxRating") Integer maxRating,
+        Pageable pageable
+    );
+
+    @Query("""
+        select distinct p.name
+        from ProductEntity p
+        where lower(p.name) like :queryPrefix
+        order by p.name asc
+        """)
+    List<String> findNameSuggestionsFallback(
+        @Param("queryPrefix") String queryPrefix,
         Pageable pageable
     );
 }

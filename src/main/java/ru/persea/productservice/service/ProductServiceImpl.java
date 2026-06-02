@@ -1,13 +1,13 @@
 package ru.persea.productservice.service;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -226,6 +226,7 @@ public class ProductServiceImpl implements ProductService {
         product.setCategory(getCategoryEntity(request.categoryId()));
         product.setName(request.name());
         product.setImageURI(request.imageURI());
+        product.setBarcode(normalizeBarcode(request.barcode()));
 
         productsRepository.save(product);
 
@@ -247,6 +248,7 @@ public class ProductServiceImpl implements ProductService {
         var product = getProductEntity(id);
         product.setName(request.name());
         product.setImageURI(request.imageURI());
+        product.setBarcode(normalizeBarcode(request.barcode()));
         product.setBrand(getBrandEntity(request.brandId()));
         product.setCategory(getCategoryEntity(request.categoryId()));
 
@@ -272,6 +274,22 @@ public class ProductServiceImpl implements ProductService {
         return getProduct(id, includes, true);
     }
 
+    @Override
+    @Transactional
+    public ProductResponse getProductByBarcode(String barcode, Set<ProductInclude> includes) {
+        String normalizedBarcode = normalizeBarcode(barcode);
+        if (normalizedBarcode == null) {
+            throw new EntityNotFoundException("Продукт с баркодом не найден: " + barcode);
+        }
+
+        var product = productsRepository.findByBarcode(normalizedBarcode)
+                .orElseThrow(() -> new EntityNotFoundException("Продукт с баркодом не найден: " + normalizedBarcode));
+
+        saveProductActionOutboxEvent(product.getId(), "scan");
+
+        return getProduct(product.getId(), includes, false);
+    }
+
     private ProductResponse getProduct(Long id, Set<ProductInclude> includes, boolean saveOutbox) {
         var product = productsRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Продукт не найден: " + id));
@@ -279,7 +297,7 @@ public class ProductServiceImpl implements ProductService {
         boolean fetchFactors = includes != null && includes.contains(ProductInclude.FACTORS);
 
         if (fetchFactors && saveOutbox) {
-            saveViewOutboxEvent(product.getId());
+            saveProductActionOutboxEvent(product.getId(), "view");
         }
 
         return productMapper.toDto(
@@ -290,7 +308,7 @@ public class ProductServiceImpl implements ProductService {
         );
     }
 
-    private void saveViewOutboxEvent(Long productId) {
+    private void saveProductActionOutboxEvent(Long productId, String actionType) {
         UUID userId = SecurityUtils.getKeycloakUUID();
         if (userId == null) return;
 
@@ -299,7 +317,7 @@ public class ProductServiceImpl implements ProductService {
                 UserActionEvent.builder()
                     .userId(userId)
                     .productId(productId)
-                    .type("view")
+                    .type(actionType)
                     .createdAt(Instant.now())
                     .build()
             );
@@ -316,6 +334,11 @@ public class ProductServiceImpl implements ProductService {
         } catch (JacksonException e) {
             log.error("Failed to serialize outbox event for product {}", productId, e);
         }
+    }
+
+    private String normalizeBarcode(String barcode) {
+        if (barcode == null || barcode.isBlank()) return null;
+        return barcode.trim();
     }
 
     private ProductSearchDto toSearchDto(ProductEntity product) {
@@ -360,6 +383,18 @@ public class ProductServiceImpl implements ProductService {
             .toList();
     }
 
+    private List<String> getSuggestionsFromDatabase(String prefix, int limit) {
+        if (prefix == null || prefix.isBlank()) {
+            return List.of();
+        }
+
+        String normalizedPrefix = prefix.trim().toLowerCase(java.util.Locale.ROOT);
+        return productsRepository.findNameSuggestionsFallback(
+            normalizedPrefix + "%",
+            PageRequest.of(0, limit)
+        );
+    }
+
     @Override
     @Transactional
     public void deleteProduct(Long id) {
@@ -376,17 +411,19 @@ public class ProductServiceImpl implements ProductService {
         Integer maxRating, 
         Pageable pageable
     ) {
+        if (query == null || query.isBlank()) {
+            return searchProductsInDatabase(query, categoryId, brandIds, minRating, maxRating, pageable);
+        }
+
         BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
 
-        if (query != null && !query.isBlank()) {
-            boolBuilder.must(Query.of(q -> q
-                .match(m -> m
-                    .field("name")
-                    .query(query)
-                    .fuzziness("2")
-                )
-            ));
-        } else boolBuilder.must(Query.of(q -> q.matchAll(m -> m)));
+        boolBuilder.must(Query.of(q -> q
+            .match(m -> m
+                .field("name")
+                .query(query)
+                .fuzziness("2")
+            )
+        ));
 
         if (categoryId != null) {
             boolBuilder.filter(Query.of(q -> q
@@ -423,10 +460,16 @@ public class ProductServiceImpl implements ProductService {
             .build();
 
         try {
-            return esOperations.search(searchQuery, ProductDocument.class).stream()
+            var searchResults = esOperations.search(searchQuery, ProductDocument.class).stream()
                     .map(SearchHit::getContent)
                     .map(productSearchMapper::toDto)
                     .toList();
+
+            if (!searchResults.isEmpty()) {
+                return searchResults;
+            }
+
+            return searchProductsInDatabase(query, categoryId, brandIds, minRating, maxRating, pageable);
         } catch (RuntimeException e) {
             log.warn("Elasticsearch product search failed ({}), falling back to database", e.getMessage());
             return searchProductsInDatabase(query, categoryId, brandIds, minRating, maxRating, pageable);
@@ -435,13 +478,22 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<String> getSuggestions(String prefix, int limit) {
-        int effectiveLimit = Math.min(limit, 5);
+        int effectiveLimit = Math.max(1, Math.min(limit, 5));
+
+        if (prefix == null || prefix.isBlank()) {
+            return List.of();
+        }
+
+        var databaseSuggestions = getSuggestionsFromDatabase(prefix, effectiveLimit);
+        if (!databaseSuggestions.isEmpty()) {
+            return databaseSuggestions;
+        }
 
         SearchRequest searchRequest = SearchRequest.of(s -> s
             .index("products")
             .suggest(sug -> sug
                 .suggesters("product-suggest", ps -> ps
-                    .prefix(prefix)
+                    .prefix(prefix.trim())
                     .completion(c -> c
                         .field("name_suggest")
                         .size(effectiveLimit)
@@ -459,15 +511,19 @@ public class ProductServiceImpl implements ProductService {
             SearchResponse<Void> searchResponse = esClient.search(searchRequest, Void.class);
             
             if (searchResponse.suggest() != null && searchResponse.suggest().containsKey("product-suggest")) {                
-                return searchResponse.suggest().get("product-suggest").stream()
+                var suggestions = searchResponse.suggest().get("product-suggest").stream()
                     .flatMap(s -> s.completion().options().stream())
                     .map(CompletionSuggestOption::text)
                     .toList();
+
+                if (!suggestions.isEmpty()) {
+                    return suggestions;
+                }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("Elasticsearch product suggestions failed ({}), falling back to database", e.getMessage());
         }
 
-        return new ArrayList<>();
+        return getSuggestionsFromDatabase(prefix, effectiveLimit);
     }
 }

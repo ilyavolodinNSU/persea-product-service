@@ -47,6 +47,7 @@ class ProductMapperTest {
         entity.setBrand(brand);
         entity.setRating(5);
         entity.setImageURI("http://image.url");
+        entity.setBarcode("4600000000011");
 
         ProductResponse dto = mapper.toDto(entity);
 
@@ -58,6 +59,7 @@ class ProductMapperTest {
         assertThat(dto.brand().name()).isEqualTo("Apple");
         assertThat(dto.rating()).isEqualTo(5);
         assertThat(dto.imageURI()).isEqualTo("http://image.url");
+        assertThat(dto.barcode()).isEqualTo("4600000000011");
         // Проверяем, что списки факторов пустые, т.к. маппер не заполняет их из ProductEntity
         assertThat(dto.numericFactors()).isNull();
         assertThat(dto.booleanFactors()).isNull();
@@ -75,6 +77,7 @@ class ProductMapperTest {
         entity.setBrand(brand);
         entity.setRating(3);
         entity.setImageURI("img");
+        entity.setBarcode("4600000000028");
 
         List<ProductNumericFactorResponse> numFactors = List.of(
                 new ProductNumericFactorResponse(1L, 10L, "Вес", "кг", 5.0, 0.0, 10.0)
@@ -96,6 +99,7 @@ class ProductMapperTest {
         // Проверяем, что базовые поля всё ещё на месте
         assertThat(dto.category().name()).isEqualTo("Кат");
         assertThat(dto.brand().name()).isEqualTo("Бренд");
+        assertThat(dto.barcode()).isEqualTo("4600000000028");
     }
 
     @Test

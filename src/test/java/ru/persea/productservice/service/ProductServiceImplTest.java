@@ -9,7 +9,6 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.CompletionSuggest;
 import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
 import co.elastic.clients.elasticsearch.core.search.Suggestion;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,6 +36,7 @@ import ru.persea.productservice.mapper.ProductSearchMapper;
 import ru.persea.productservice.repository.factor.FactorRepository;
 import ru.persea.productservice.repository.factor.FactorEnumValueRepository;
 import ru.persea.productservice.repository.product.*;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.*;
@@ -168,7 +168,7 @@ class ProductServiceImplTest {
     @Test
     void createProduct_shouldSaveProductAndFactorsAndReturnDto() {
         CreateProductRequest request = new CreateProductRequest(
-                "Товар", 1L, 2L, "img",
+                "Товар", 1L, 2L, "img", "4600000000011",
                 List.of(new ProductNumericFactorRequest(10L, 5.0)),
                 List.of(new ProductBooleanFactorRequest(20L, true)),
                 List.of(new ProductEnumFactorRequest(30L, 40L))
@@ -208,6 +208,7 @@ class ProductServiceImplTest {
         ProductResponse result = productService.createProduct(request);
 
         assertThat(result).isEqualTo(responseDto);
+        verify(productsRepository).save(argThat(product -> "4600000000011".equals(product.getBarcode())));
         verify(productsRepository).save(any(ProductEntity.class));
         verify(numericFactorRepository).saveAll(any());
         verify(booleanFactorRepository).saveAll(any());
@@ -251,9 +252,51 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void getProductByBarcode_shouldReturnProductAndSaveScanOutbox() throws Exception {
+        UUID userId = UUID.randomUUID();
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
+                        org.springframework.security.oauth2.jwt.Jwt.withTokenValue("token")
+                                .header("alg", "none")
+                                .claim("sub", userId.toString())
+                                .build()
+                )
+        );
+
+        ProductEntity product = new ProductEntity();
+        product.setId(7L);
+        product.setName("Вода");
+        product.setBarcode("4600000000011");
+        ProductResponse dto = mock(ProductResponse.class);
+
+        when(productsRepository.findByBarcode("4600000000011")).thenReturn(Optional.of(product));
+        when(productsRepository.findById(7L)).thenReturn(Optional.of(product));
+        when(productMapper.toDto(eq(product), isNull(), isNull(), isNull())).thenReturn(dto);
+        when(objectMapper.writeValueAsString(any(UserActionEvent.class))).thenReturn("{\"type\":\"scan\"}");
+
+        ProductResponse result = productService.getProductByBarcode(" 4600000000011 ", Collections.emptySet());
+
+        assertThat(result).isEqualTo(dto);
+        verify(outboxEventRepository).save(argThat(event ->
+                "product".equals(event.getAggregateType())
+                        && "7".equals(event.getAggregateId())
+                        && "ProductViewed".equals(event.getType())
+                        && "{\"type\":\"scan\"}".equals(event.getPayload())
+        ));
+        verify(objectMapper).writeValueAsString(argThat(argument -> {
+            if (!(argument instanceof UserActionEvent event)) return false;
+            return userId.equals(event.userId())
+                    && Long.valueOf(7L).equals(event.productId())
+                    && "scan".equals(event.type())
+                    && event.createdAt() != null;
+        }));
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    @Test
     void updateProduct_shouldUpdateAndReturnDto() {
         UpdateProductRequest request = new UpdateProductRequest(
-                "Новое имя", 3L, 4L, "newImg",
+                "Новое имя", 3L, 4L, "newImg", "4600000000028",
                 List.of(new ProductNumericFactorRequest(11L, 6.0)),
                 List.of(),
                 List.of()
@@ -283,6 +326,7 @@ class ProductServiceImplTest {
 
         assertThat(result).isEqualTo(responseDto);
         assertThat(existing.getName()).isEqualTo("Новое имя");
+        assertThat(existing.getBarcode()).isEqualTo("4600000000028");
         assertThat(existing.getUpdatedAt()).isNotNull();
         verify(numericFactorRepository).deleteAllByProductId(10L);
         verify(booleanFactorRepository).deleteAllByProductId(10L);
@@ -342,9 +386,39 @@ class ProductServiceImplTest {
         assertThat(result).containsExactly(new ProductSearchDto(1L, "Вода", 82, "img"));
     }
 
+    @Test
+    void searchProducts_whenElasticReturnsEmpty_shouldFallbackToDatabase() {
+        Pageable pageable = Pageable.unpaged();
+        ProductEntity product = new ProductEntity();
+        product.setId(2L);
+        product.setName("Акваника");
+        product.setRating(90);
+        product.setImageURI("img2");
+
+        SearchHits<ProductDocument> searchHits = mock(SearchHits.class);
+        when(searchHits.stream()).thenReturn(List.<SearchHit<ProductDocument>>of().stream());
+        when(esOperations.search(any(NativeQuery.class), eq(ProductDocument.class))).thenReturn(searchHits);
+        when(productsRepository.searchProductsFallback(
+                eq("%акваника%"),
+                eq(true),
+                isNull(),
+                eq(Set.of(-1L)),
+                eq(true),
+                isNull(),
+                isNull(),
+                eq(pageable)
+        )).thenReturn(List.of(product));
+
+        List<ProductSearchDto> result = productService.searchProducts("Акваника", null, null, null, null, pageable);
+
+        assertThat(result).containsExactly(new ProductSearchDto(2L, "Акваника", 90, "img2"));
+    }
+
     // ================== Suggestions tests ==================
     @Test
     void getSuggestions_shouldReturnSuggestionsFromElastic() throws Exception {
+        when(productsRepository.findNameSuggestionsFallback(eq("тел%"), any()))
+                .thenReturn(List.of());
         SearchResponse<Void> searchResponse = mock(SearchResponse.class);
         Map<String, List<Suggestion<Void>>> map = new HashMap<>();
         List<Suggestion<Void>> suggestions = new ArrayList<>();
@@ -364,5 +438,16 @@ class ProductServiceImplTest {
         List<String> result = productService.getSuggestions("тел", 3);
 
         assertThat(result).containsExactly("телефон", "телевизор");
+    }
+
+    @Test
+    void getSuggestions_whenDatabaseReturnsValues_shouldUseDatabase() throws Exception {
+        when(productsRepository.findNameSuggestionsFallback(eq("аква%"), any()))
+                .thenReturn(List.of("Акваника"));
+
+        List<String> result = productService.getSuggestions(" Аква ", 3);
+
+        assertThat(result).containsExactly("Акваника");
+        verify(esClient, never()).search(any(SearchRequest.class), eq(Void.class));
     }
 }

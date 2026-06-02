@@ -142,10 +142,10 @@ class ProductControllerTest {
     @Test
     void createProduct_shouldReturnCreated() {
         CreateProductRequest request = new CreateProductRequest(
-                "Товар", 1L, 1L, "http://image.url", null, null, null
+                "Товар", 1L, 1L, "http://image.url", "4600000000011", null, null, null
         );
         ProductResponse responseDto = new ProductResponse(
-                1L, "Товар", null, null, null, "http://image.url", null, null, null
+                1L, "Товар", null, null, null, "http://image.url", "4600000000011", null, null, null
         );
         when(productService.createProduct(any(CreateProductRequest.class))).thenReturn(responseDto);
 
@@ -159,7 +159,7 @@ class ProductControllerTest {
     void getProduct_withIncludes_shouldReturnOk() {
         Set<ProductInclude> includes = Set.of(ProductInclude.FACTORS);
         ProductResponse responseDto = new ProductResponse(
-                1L, "Товар", null, null, null, null, null, null, null
+                1L, "Товар", null, null, null, null, null, null, null, null
         );
         when(productService.getProduct(1L, includes)).thenReturn(responseDto);
 
@@ -173,7 +173,7 @@ class ProductControllerTest {
     void getProduct_withoutIncludes_shouldPassEmptySet() {
         // Если includes = null, ожидаем, что сервис получит null (или пустой Set?) - смотрим на контроллер: он передаёт includes как есть.
         ProductResponse responseDto = new ProductResponse(
-                1L, "Товар", null, null, null, null, null, null, null
+                1L, "Товар", null, null, null, null, null, null, null, null
         );
         when(productService.getProduct(1L, null)).thenReturn(responseDto);
 
@@ -184,12 +184,26 @@ class ProductControllerTest {
     }
 
     @Test
+    void getProductByBarcode_shouldReturnOk() {
+        Set<ProductInclude> includes = Set.of(ProductInclude.FACTORS);
+        ProductResponse responseDto = new ProductResponse(
+                1L, "Товар", null, null, null, null, "4600000000011", null, null, null
+        );
+        when(productService.getProductByBarcode("4600000000011", includes)).thenReturn(responseDto);
+
+        ResponseEntity<ProductResponse> response = controller.getProductByBarcode("4600000000011", includes);
+
+        assertThat(response.getBody()).isEqualTo(responseDto);
+        verify(productService).getProductByBarcode("4600000000011", includes);
+    }
+
+    @Test
     void updateProduct_shouldReturnOk() {
         UpdateProductRequest request = new UpdateProductRequest(
-                "Обновлённый товар", 2L, 2L, null, null, null, null
+                "Обновлённый товар", 2L, 2L, null, "4600000000011", null, null, null
         );
         ProductResponse updated = new ProductResponse(
-                1L, "Обновлённый товар", null, null, null, null, null, null, null
+                1L, "Обновлённый товар", null, null, null, null, "4600000000011", null, null, null
         );
         when(productService.updateProduct(eq(1L), any(UpdateProductRequest.class))).thenReturn(updated);
 

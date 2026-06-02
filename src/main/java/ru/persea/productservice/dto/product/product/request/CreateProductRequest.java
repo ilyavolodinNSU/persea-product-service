@@ -8,6 +8,7 @@ public record CreateProductRequest(
     Long categoryId,
     Long brandId,
     String imageURI,
+    String barcode,
     List<ProductNumericFactorRequest> numericFactors,
     List<ProductBooleanFactorRequest> booleanFactors,
     List<ProductEnumFactorRequest> enumFactors
